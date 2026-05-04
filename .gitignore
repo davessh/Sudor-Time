@@ -1,0 +1,28 @@
+# Variables sensibles
+.env
+.env.*
+
+# Backend Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Frontend React
+node_modules/
+dist/
+build/
+
+# Logs
+*.log
+
+# Sistema/editor
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Bases locales
+*.db
+*.sqlite
+*.sqlite3
