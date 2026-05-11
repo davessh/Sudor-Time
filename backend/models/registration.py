@@ -11,10 +11,11 @@ class Registration(Base):
     event_id = Column(Integer, ForeignKey("events.id"))
     participant_id = Column(Integer, ForeignKey("participants.id"))
     modality_id = Column(Integer, ForeignKey("event_modalities.id"))
-    product_id = Column(Integer, ForeignKey("registration_products.id"))
+    product_id = Column(Integer, ForeignKey("registration_products.id"), nullable=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
 
     numero_competidor = Column(String, nullable=True)
+    talla_playera = Column(String, nullable=True)
 
     event = relationship("Event", back_populates="registrations")
     participant = relationship("Participant", back_populates="registrations")

@@ -15,5 +15,5 @@ export function updateRegistration(registrationId, payload) {
 }
 
 export function getEventRegistrations(eventId) {
-  return apiRequest(`/events/${eventId}/registrations`)
+  return apiRequest(`/registrations/by-event/${eventId}`)
 }

@@ -1,8 +1,6 @@
-import { apiRequest } from "./client";
+import { createParticipant } from './participants'
 
+// Alias temporal para no romper imports viejos.
 export function createAthlete(payload) {
-  return apiRequest("/athletes", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return createParticipant(payload)
 }

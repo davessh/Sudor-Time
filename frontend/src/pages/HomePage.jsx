@@ -1,92 +1,52 @@
-import { useEffect, useState } from 'react'
-import Hero from '../components/Hero'
-import EventCard from '../components/EventCard'
-import { getEvents } from '../api/events'
+import { useState, useEffect } from 'react';
+import Hero from '../components/Hero';
+import EventCard from '../components/EventCard';
+import EventSkeleton from '../components/EventSkeleton';
+
+// Aquí importamos tu archivo real de la API. 
+// Nota: Verifica que la función dentro de api/events.js se llame 'getEvents' o cámbiala al nombre correcto.
+import { getEvents } from '../api/events'; 
 
 export default function HomePage() {
-  const [eventos, setEventos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [eventos, setEventos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadEvents() {
       try {
-        setLoading(true)
-        setError('')
-
-        const data = await getEvents()
-
-        const eventosAdaptados = data.map((evento, index) => ({
-          ...evento,
-          imagen: getEventImage(index),
-        }))
-
-        setEventos(eventosAdaptados)
-      } catch (err) {
-        setError(err.message || 'No se pudieron cargar los eventos')
+        setLoading(true);
+        // Llamamos a tu base de datos
+        const data = await getEvents(); 
+        setEventos(data);
+      } catch (error) {
+        console.error("Error cargando los eventos:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-
-    loadEvents()
-  }, [])
-
-  function getEventImage(index) {
-    const imagenes = [
-      '/eventos/1.png',
-      '/eventos/logo-medio-maraton.png',
-      '/eventos/2.png',
-    ]
-
-    return imagenes[index % imagenes.length]
-  }
+    
+    loadEvents();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen bg-[#F1F5F9]">
       <Hero />
-
-      <main className="mx-auto max-w-7xl px-6 py-16">
-        {loading && (
-          <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="overflow-hidden rounded-3xl bg-slate-100"
-              >
-                <div className="h-64 animate-pulse bg-slate-200" />
-                <div className="space-y-3 p-5">
-                  <div className="h-5 w-2/3 animate-pulse rounded bg-slate-200" />
-                  <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
-                  <div className="h-10 w-full animate-pulse rounded-2xl bg-slate-200" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {error && (
-          <div className="py-20 text-center">
-            <p className="text-base text-slate-500">{error}</p>
-          </div>
-        )}
-
-        {!loading && !error && eventos.length === 0 && (
-          <div className="py-20 text-center">
-            <p className="text-base text-slate-500">
-              No hay eventos disponibles por el momento.
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && eventos.length > 0 && (
-          <section className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-            {eventos.map((evento) => (
+      
+      <main className="mx-auto max-w-7xl px-6 py-12">
+        <h2 className="text-3xl font-extrabold text-slate-900 mb-8 tracking-tight">Próximos Eventos</h2>
+        
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {loading ? (
+            /* Muestra 3 tarjetas de esqueleto mientras carga tu API */
+            [1, 2, 3].map((n) => <EventSkeleton key={n} />)
+          ) : (
+            /* Muestra los eventos reales una vez que la API responde */
+            eventos?.map((evento) => (
               <EventCard key={evento.id} evento={evento} />
-            ))}
-          </section>
-        )}
+            ))
+          )}
+        </div>
       </main>
     </div>
-  )
+  );
 }

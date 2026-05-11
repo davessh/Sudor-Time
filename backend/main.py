@@ -7,6 +7,7 @@ from routers.participants import router as participants_router
 from routers.modalities import router as modalities_router
 from routers.products import router as products_router
 from routers.categories import router as categories_router
+from routers.shirt_sizes import router as shirt_sizes_router
 from routers.tags import router as tags_router
 from routers.registrations import router as registrations_router
 from routers.checkpoints import router as checkpoints_router
@@ -31,6 +32,7 @@ app.include_router(participants_router)
 app.include_router(modalities_router)
 app.include_router(products_router)
 app.include_router(categories_router)
+app.include_router(shirt_sizes_router)
 app.include_router(tags_router)
 app.include_router(registrations_router)
 app.include_router(checkpoints_router)

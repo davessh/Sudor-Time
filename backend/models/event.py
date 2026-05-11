@@ -22,6 +22,7 @@ class Event(Base):
     modalities = relationship("EventModality", back_populates="event", cascade="all, delete-orphan")
     products = relationship("RegistrationProduct", back_populates="event", cascade="all, delete-orphan")
     categories = relationship("Category", back_populates="event", cascade="all, delete-orphan")
+    shirt_sizes = relationship("EventShirtSize", back_populates="event", cascade="all, delete-orphan")
     checkpoints = relationship("Checkpoint", back_populates="event", cascade="all, delete-orphan")
     registrations = relationship("Registration", back_populates="event", cascade="all, delete-orphan")
     raw_reads = relationship("RawRead", back_populates="event", cascade="all, delete-orphan")
@@ -34,11 +35,14 @@ class EventModality(Base):
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
     nombre = Column(String, nullable=False)
+    descripcion = Column(Text, nullable=True)
+    precio = Column(Numeric(10, 2), nullable=False, default=0)
     distancia_km = Column(Numeric(6, 2), nullable=True)
 
     event = relationship("Event", back_populates="modalities")
     registrations = relationship("Registration", back_populates="modality")
     products = relationship("RegistrationProduct", back_populates="modality")
+    categories = relationship("Category", back_populates="modality")
 
     __table_args__ = (
         UniqueConstraint("event_id", "nombre", name="uq_event_modality"),
@@ -68,11 +72,29 @@ class Category(Base):
     modality_id = Column(Integer, ForeignKey("event_modalities.id"), nullable=False)
 
     nombre = Column(String, nullable=False)
-    sexo = Column(String, nullable=True)
+    sexo = Column(String, nullable=True)  # Masculino, Femenino o NULL para mixta
+    edad_min = Column(Integer, nullable=True)
+    edad_max = Column(Integer, nullable=True)
 
     event = relationship("Event", back_populates="categories")
-    modality = relationship("EventModality")
+    modality = relationship("EventModality", back_populates="categories")
     registrations = relationship("Registration", back_populates="category")
+
+
+class EventShirtSize(Base):
+    __tablename__ = "event_shirt_sizes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    talla = Column(String, nullable=False)
+    stock = Column(Integer, nullable=True)
+    activa = Column(Boolean, default=True)
+
+    event = relationship("Event", back_populates="shirt_sizes")
+
+    __table_args__ = (
+        UniqueConstraint("event_id", "talla", name="uq_event_shirt_size"),
+    )
 
 
 class Checkpoint(Base):

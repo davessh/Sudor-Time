@@ -14,4 +14,11 @@ class Participant(Base):
     fecha_nacimiento = Column(Date, nullable=True)
     sexo = Column(String, nullable=True)
 
+    telefono = Column(String, nullable=True)
+    correo = Column(String, nullable=True)
+    ciudad = Column(String, nullable=True)
+    equipo = Column(String, nullable=True)
+    contacto_emergencia = Column(String, nullable=True)
+    telefono_emergencia = Column(String, nullable=True)
+
     registrations = relationship("Registration", back_populates="participant")

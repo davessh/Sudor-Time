@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from dependencies import get_db
-from models import Event
-from schemas.event import EventCreate, EventResponse
+from models import Event, EventModality, RegistrationProduct, Category, EventShirtSize, Registration
+from schemas.event import EventCreate, EventResponse, EventSetupResponse, EventStatsResponse, CountItem
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
@@ -27,6 +28,79 @@ def listar_eventos(db: Session = Depends(get_db)):
     return db.query(Event).order_by(Event.fecha.desc()).all()
 
 
+@router.get("/{event_id}/setup", response_model=EventSetupResponse)
+def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
+    evento = db.query(Event).filter(Event.id == event_id).first()
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+
+    return EventSetupResponse(
+        id=evento.id,
+        nombre=evento.nombre,
+        slug=evento.slug,
+        descripcion=evento.descripcion,
+        fecha=evento.fecha,
+        lugar=evento.lugar,
+        modalities=db.query(EventModality).filter(EventModality.event_id == event_id).order_by(EventModality.id.asc()).all(),
+        categories=db.query(Category).filter(Category.event_id == event_id).order_by(Category.modality_id.asc(), Category.edad_min.asc(), Category.id.asc()).all(),
+        products=db.query(RegistrationProduct).filter(RegistrationProduct.event_id == event_id).order_by(RegistrationProduct.id.asc()).all(),
+        shirt_sizes=db.query(EventShirtSize).filter(EventShirtSize.event_id == event_id, EventShirtSize.activa == True).order_by(EventShirtSize.id.asc()).all(),
+    )
+
+
+@router.get("/{event_id}/stats", response_model=EventStatsResponse)
+def obtener_estadisticas_evento(event_id: int, db: Session = Depends(get_db)):
+    evento = db.query(Event).filter(Event.id == event_id).first()
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+
+    total = db.query(Registration).filter(Registration.event_id == event_id).count()
+
+    por_modalidad = (
+        db.query(EventModality.id, EventModality.nombre, func.count(Registration.id))
+        .join(Registration, Registration.modality_id == EventModality.id)
+        .filter(Registration.event_id == event_id)
+        .group_by(EventModality.id, EventModality.nombre)
+        .order_by(EventModality.id.asc())
+        .all()
+    )
+
+    por_categoria = (
+        db.query(Category.id, Category.nombre, func.count(Registration.id))
+        .join(Registration, Registration.category_id == Category.id)
+        .filter(Registration.event_id == event_id)
+        .group_by(Category.id, Category.nombre)
+        .order_by(Category.id.asc())
+        .all()
+    )
+
+    por_producto = (
+        db.query(RegistrationProduct.id, RegistrationProduct.nombre, func.count(Registration.id))
+        .join(Registration, Registration.product_id == RegistrationProduct.id)
+        .filter(Registration.event_id == event_id)
+        .group_by(RegistrationProduct.id, RegistrationProduct.nombre)
+        .order_by(RegistrationProduct.id.asc())
+        .all()
+    )
+
+    por_talla = (
+        db.query(Registration.talla_playera, func.count(Registration.id))
+        .filter(Registration.event_id == event_id)
+        .group_by(Registration.talla_playera)
+        .order_by(Registration.talla_playera.asc())
+        .all()
+    )
+
+    return EventStatsResponse(
+        event_id=event_id,
+        total_inscritos=total,
+        por_modalidad=[CountItem(id=row[0], nombre=row[1], total=row[2]) for row in por_modalidad],
+        por_categoria=[CountItem(id=row[0], nombre=row[1], total=row[2]) for row in por_categoria],
+        por_producto=[CountItem(id=row[0], nombre=row[1], total=row[2]) for row in por_producto],
+        por_talla=[CountItem(id=None, nombre=row[0] or "Sin talla", total=row[1]) for row in por_talla],
+    )
+
+
 @router.get("/{event_id}", response_model=EventResponse)
 def obtener_evento(event_id: int, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == event_id).first()
@@ -44,7 +118,7 @@ def actualizar_evento(event_id: int, data: EventCreate, db: Session = Depends(ge
     if data.slug:
         slug_repetido = db.query(Event).filter(
             Event.slug == data.slug,
-            Event.id != event_id
+            Event.id != event_id,
         ).first()
         if slug_repetido:
             raise HTTPException(status_code=400, detail="Ya existe otro evento con ese slug")

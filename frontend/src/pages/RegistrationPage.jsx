@@ -1,22 +1,78 @@
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-import { getEventById } from '../api/events'
-import { createAthlete } from '../api/athletes'
+import { getEventSetup } from '../api/events'
+import { createParticipant } from '../api/participants'
 import { createRegistration } from '../api/registrations'
+
+function calcularEdad(fechaNacimiento, fechaEvento) {
+  if (!fechaNacimiento || !fechaEvento) return null
+
+  const nacimiento = new Date(`${fechaNacimiento}T00:00:00`)
+  const evento = new Date(`${fechaEvento}T00:00:00`)
+
+  if (Number.isNaN(nacimiento.getTime()) || Number.isNaN(evento.getTime())) {
+    return null
+  }
+
+  let edad = evento.getFullYear() - nacimiento.getFullYear()
+  const mes = evento.getMonth() - nacimiento.getMonth()
+
+  if (mes < 0 || (mes === 0 && evento.getDate() < nacimiento.getDate())) {
+    edad -= 1
+  }
+
+  return edad
+}
+
+function normalizarSexo(valor) {
+  if (!valor) return ''
+  const texto = valor.toLowerCase().trim()
+
+  if (['m', 'masculino', 'hombre', 'h'].includes(texto)) return 'masculino'
+  if (['f', 'femenino', 'mujer'].includes(texto)) return 'femenino'
+
+  return texto
+}
+
+function categoriaCoincide(categoria, sexo, edad) {
+  const sexoCategoria = normalizarSexo(categoria.sexo)
+  const sexoParticipante = normalizarSexo(sexo)
+
+  if (sexoCategoria && sexoParticipante && sexoCategoria !== sexoParticipante) {
+    return false
+  }
+
+  if (categoria.edad_min !== null && categoria.edad_min !== undefined) {
+    if (edad === null || edad < Number(categoria.edad_min)) return false
+  }
+
+  if (categoria.edad_max !== null && categoria.edad_max !== undefined) {
+    if (edad === null || edad > Number(categoria.edad_max)) return false
+  }
+
+  return true
+}
+
+function separarApellidos(apellidos) {
+  const partes = apellidos.trim().split(/\s+/).filter(Boolean)
+
+  return {
+    apellido_paterno: partes[0] || 'Sin apellido',
+    apellido_materno: partes.slice(1).join(' ') || null,
+  }
+}
 
 export default function RegistrationPage() {
   const { id } = useParams()
-  const location = useLocation()
 
-  const [evento, setEvento] = useState(null)
+  const [setup, setSetup] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null)
-
   const [formData, setFormData] = useState({
+    modality_id: '',
     nombre: '',
     apellidos: '',
     fechaNacimiento: '',
@@ -35,34 +91,8 @@ export default function RegistrationPage() {
       try {
         setLoading(true)
         setError('')
-
-        const data = await getEventById(id)
-
-        setEvento({
-          ...data,
-          organizador: 'Sudortime Sports',
-          costo: '$300 MXN',
-          cierre: 'Un día antes del evento',
-          categorias:
-            data.categorias && data.categorias.length > 0
-              ? data.categorias
-              : [
-                  {
-                    id: 1,
-                    nombre: '5K Libre',
-                    descripcion: 'Categoría abierta para corredores mayores de edad.',
-                    distancia: '5 km',
-                    costo: '$300 MXN',
-                  },
-                  {
-                    id: 2,
-                    nombre: '10K Libre',
-                    descripcion: 'Para corredores que buscan un reto competitivo mayor.',
-                    distancia: '10 km',
-                    costo: '$350 MXN',
-                  },
-                ],
-        })
+        const data = await getEventSetup(id)
+        setSetup(data)
       } catch (err) {
         setError(err.message || 'No se pudo cargar el evento')
       } finally {
@@ -73,13 +103,40 @@ export default function RegistrationPage() {
     loadEvent()
   }, [id])
 
-  const isEvento = location.pathname === `/evento/${id}`
-  const isResultados = location.pathname === `/evento/${id}/resultados`
-  const isInscripcion = location.pathname === `/evento/${id}/inscripcion`
+  const edad = useMemo(() => {
+    return calcularEdad(formData.fechaNacimiento, setup?.fecha)
+  }, [formData.fechaNacimiento, setup?.fecha])
+
+  const modalidadSeleccionada = useMemo(() => {
+    if (!setup || !formData.modality_id) return null
+    return setup.modalities.find((m) => String(m.id) === String(formData.modality_id)) || null
+  }, [setup, formData.modality_id])
+
+  const categoriasDeModalidad = useMemo(() => {
+    if (!setup || !formData.modality_id) return []
+
+    return setup.categories.filter(
+      (categoria) => String(categoria.modality_id) === String(formData.modality_id)
+    )
+  }, [setup, formData.modality_id])
+
+  const categoriaCalculada = useMemo(() => {
+    if (!categoriasDeModalidad.length) return null
+    if (!formData.fechaNacimiento || !formData.sexo) return null
+
+    return (
+      categoriasDeModalidad.find((categoria) =>
+        categoriaCoincide(categoria, formData.sexo, edad)
+      ) || null
+    )
+  }, [categoriasDeModalidad, formData.fechaNacimiento, formData.sexo, edad])
 
   const formularioValido = useMemo(() => {
+    const requiereTalla = setup?.shirt_sizes?.length > 0
+    const requiereCategoria = categoriasDeModalidad.length > 0
+
     return (
-      categoriaSeleccionada &&
+      formData.modality_id &&
       formData.nombre.trim() &&
       formData.apellidos.trim() &&
       formData.fechaNacimiento &&
@@ -87,11 +144,12 @@ export default function RegistrationPage() {
       formData.telefono.trim() &&
       formData.correo.trim() &&
       formData.ciudad.trim() &&
-      formData.talla &&
+      (!requiereTalla || formData.talla) &&
       formData.contactoEmergencia.trim() &&
-      formData.telefonoEmergencia.trim()
+      formData.telefonoEmergencia.trim() &&
+      (!requiereCategoria || categoriaCalculada)
     )
-  }, [categoriaSeleccionada, formData])
+  }, [setup?.shirt_sizes, categoriasDeModalidad, categoriaCalculada, formData])
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -103,37 +161,44 @@ export default function RegistrationPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-
     setError('')
     setSuccess('')
 
-    if (!categoriaSeleccionada) {
-      setError('Selecciona una categoría para continuar.')
-      return
-    }
-
     if (!formularioValido) {
-      setError('Completa todos los campos obligatorios.')
+      setError('Completa los campos obligatorios. Si no aparece categoría, revisa edad, sexo o modalidad.')
       return
     }
 
     try {
       setSending(true)
 
-      const athlete = await createAthlete({
+      const apellidos = separarApellidos(formData.apellidos)
+
+      const participante = await createParticipant({
         nombre: formData.nombre.trim(),
-        apellido: formData.apellidos.trim(),
+        apellido_paterno: apellidos.apellido_paterno,
+        apellido_materno: apellidos.apellido_materno,
+        fecha_nacimiento: formData.fechaNacimiento,
         sexo: formData.sexo,
+        telefono: formData.telefono.trim(),
+        correo: formData.correo.trim(),
+        ciudad: formData.ciudad.trim(),
+        equipo: formData.equipo.trim() || null,
+        contacto_emergencia: formData.contactoEmergencia.trim(),
+        telefono_emergencia: formData.telefonoEmergencia.trim(),
       })
 
       await createRegistration({
         event_id: Number(id),
-        athlete_id: athlete.id,
-        categoria: categoriaSeleccionada.nombre,
+        participant_id: participante.id,
+        modality_id: Number(formData.modality_id),
+        category_id: categoriaCalculada?.id || null,
+        talla_playera: formData.talla || null,
       })
 
       setSuccess('Inscripción realizada correctamente.')
       setFormData({
+        modality_id: '',
         nombre: '',
         apellidos: '',
         fechaNacimiento: '',
@@ -146,7 +211,6 @@ export default function RegistrationPage() {
         contactoEmergencia: '',
         telefonoEmergencia: '',
       })
-      setCategoriaSeleccionada(null)
     } catch (err) {
       setError(err.message || 'No se pudo completar la inscripción')
     } finally {
@@ -157,28 +221,20 @@ export default function RegistrationPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-7xl px-6 py-16">
-          <div className="animate-pulse space-y-6">
-            <div className="h-5 w-48 rounded-full bg-slate-200" />
-            <div className="h-12 w-2/3 rounded-2xl bg-slate-200" />
-            <div className="h-5 w-1/3 rounded-full bg-slate-200" />
-            <div className="mt-8 h-72 rounded-[2rem] bg-slate-200" />
-          </div>
+        <div className="mx-auto max-w-5xl px-6 py-16">
+          <p className="text-slate-500">Cargando evento...</p>
         </div>
       </div>
     )
   }
 
-  if (error && !evento) {
+  if (error && !setup) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <div className="mx-auto max-w-5xl px-6 py-16">
           <h1 className="text-3xl font-bold">Error</h1>
           <p className="mt-4 text-slate-600">{error}</p>
-          <Link
-            to="/"
-            className="mt-6 inline-flex rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:opacity-90"
-          >
+          <Link to="/" className="mt-6 inline-flex rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white">
             Ir al inicio
           </Link>
         </div>
@@ -189,404 +245,138 @@ export default function RegistrationPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-              <Link to="/" className="transition hover:text-slate-900">
-                Inicio
-              </Link>
-              <span>/</span>
-              <Link
-                to={`/evento/${evento.id}`}
-                className="transition hover:text-slate-900"
-              >
-                {evento.nombre}
-              </Link>
-              <span>/</span>
-              <span className="font-medium text-slate-900">Inscripción</span>
-            </div>
-
-            <div className="mt-2">
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                Inscripción al evento
-              </h1>
-              <p className="mt-1 text-sm text-slate-500 md:text-base">
-                {evento.nombre} · {evento.fecha} · {evento.lugar}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-7xl px-6 pb-4">
-          <nav className="flex flex-wrap gap-2">
-            <Link
-              to={`/evento/${evento.id}`}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                isEvento
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Resumen
-            </Link>
-
-            <Link
-              to={`/evento/${evento.id}/inscripcion`}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                isInscripcion
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Inscripción
-            </Link>
-
-            <Link
-              to={`/evento/${evento.id}/resultados`}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                isResultados
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Resultados
-            </Link>
-          </nav>
+        <div className="mx-auto max-w-6xl px-6 py-6">
+          <Link to={`/evento/${setup.id}`} className="text-sm font-semibold text-slate-500 hover:text-slate-900">
+            ← Volver al evento
+          </Link>
+          <h1 className="mt-3 text-3xl font-black tracking-tight">Inscripción oficial</h1>
+          <p className="mt-1 text-slate-500">{setup.nombre} · {setup.fecha} · {setup.lugar}</p>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="space-y-8">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-700">
-                Paso 1
-              </p>
-              <h2 className="mt-2 text-2xl font-bold">Selecciona tu categoría</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Elige la opción que corresponda a tu participación.
-              </p>
+      <main className="mx-auto grid max-w-6xl gap-8 px-6 py-10 lg:grid-cols-[1fr_360px]">
+        <form onSubmit={handleSubmit} className="space-y-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <section>
+            <h2 className="text-xl font-bold">1. Modalidad</h2>
+            <p className="mt-1 text-sm text-slate-500">Las modalidades vienen de la base de datos del evento.</p>
 
-              <div className="mt-6 grid gap-4">
-                {evento.categorias.map((categoria, index) => {
-                  const activa =
-                    categoriaSeleccionada?.id === categoria.id ||
-                    (!categoria.id &&
-                      categoriaSeleccionada?.nombre === categoria.nombre)
-
-                  return (
-                    <button
-                      key={categoria.id ?? index}
-                      type="button"
-                      onClick={() => setCategoriaSeleccionada(categoria)}
-                      className={`rounded-3xl border p-6 text-left transition ${
-                        activa
-                          ? 'border-red-600 bg-red-50 shadow-sm'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-900">
-                            {categoria.nombre}
-                          </h3>
-                          <p className="mt-2 text-sm leading-6 text-slate-600">
-                            {categoria.descripcion || 'Categoría disponible para este evento.'}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col gap-2 text-sm">
-                          <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
-                            {categoria.distancia || 'Por definir'}
-                          </span>
-                          <span className="inline-flex rounded-full bg-slate-900 px-3 py-1 font-semibold text-white">
-                            {categoria.costo || evento.costo}
-                          </span>
-                        </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {setup.modalities.map((modalidad) => {
+                const activa = String(formData.modality_id) === String(modalidad.id)
+                return (
+                  <label
+                    key={modalidad.id}
+                    className={`cursor-pointer rounded-2xl border p-5 transition ${
+                      activa ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="modality_id"
+                      value={modalidad.id}
+                      checked={activa}
+                      onChange={handleChange}
+                      className="sr-only"
+                    />
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-bold">{modalidad.nombre}</p>
+                        <p className="mt-1 text-sm text-slate-500">{modalidad.descripcion || 'Sin descripción'}</p>
                       </div>
-                    </button>
-                  )
-                })}
-              </div>
+                      <span className="rounded-full bg-slate-900 px-3 py-1 text-sm font-bold text-white">
+                        ${Number(modalidad.precio || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </label>
+                )
+              })}
             </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
-            >
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-700">
-                Paso 2
-              </p>
-              <h2 className="mt-2 text-2xl font-bold">Datos del corredor</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Completa la información necesaria para registrar tu participación.
-              </p>
-
-              <div className="mt-8 grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    name="nombre"
-                    value={formData.nombre}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="Tu nombre"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Apellidos
-                  </label>
-                  <input
-                    type="text"
-                    name="apellidos"
-                    value={formData.apellidos}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="Tus apellidos"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Fecha de nacimiento
-                  </label>
-                  <input
-                    type="date"
-                    name="fechaNacimiento"
-                    value={formData.fechaNacimiento}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Sexo
-                  </label>
-                  <select
-                    name="sexo"
-                    value={formData.sexo}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                  >
-                    <option value="">Selecciona una opción</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Femenino">Femenino</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="Tu teléfono"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Correo electrónico
-                  </label>
-                  <input
-                    type="email"
-                    name="correo"
-                    value={formData.correo}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="correo@ejemplo.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Ciudad de procedencia
-                  </label>
-                  <input
-                    type="text"
-                    name="ciudad"
-                    value={formData.ciudad}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="Ciudad"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Talla de playera
-                  </label>
-                  <select
-                    name="talla"
-                    value={formData.talla}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                  >
-                    <option value="">Selecciona una talla</option>
-                    <option value="CH">CH</option>
-                    <option value="M">M</option>
-                    <option value="G">G</option>
-                    <option value="XG">XG</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Club o equipo
-                  </label>
-                  <input
-                    type="text"
-                    name="equipo"
-                    value={formData.equipo}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="Opcional"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Contacto de emergencia
-                  </label>
-                  <input
-                    type="text"
-                    name="contactoEmergencia"
-                    value={formData.contactoEmergencia}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="Nombre del contacto"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Teléfono de emergencia
-                  </label>
-                  <input
-                    type="tel"
-                    name="telefonoEmergencia"
-                    value={formData.telefonoEmergencia}
-                    onChange={handleChange}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
-                    placeholder="Teléfono del contacto"
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                  {success}
-                </div>
-              )}
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="submit"
-                  disabled={!formularioValido || sending}
-                  className="inline-flex items-center justify-center rounded-2xl bg-red-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {sending ? 'Procesando inscripción...' : 'Completar inscripción'}
-                </button>
-
-                <Link
-                  to={`/evento/${evento.id}`}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-300 px-6 py-4 text-base font-semibold text-slate-700 transition hover:bg-slate-100"
-                >
-                  Volver al evento
-                </Link>
-              </div>
-            </form>
           </section>
 
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-700">
-                Resumen del evento
-              </p>
-              <h2 className="mt-2 text-2xl font-bold">{evento.nombre}</h2>
-
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Fecha
-                  </p>
-                  <p className="mt-2 font-semibold">{evento.fecha}</p>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Lugar
-                  </p>
-                  <p className="mt-2 font-semibold">{evento.lugar}</p>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Organizador
-                  </p>
-                  <p className="mt-2 font-semibold">{evento.organizador}</p>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Costo base
-                  </p>
-                  <p className="mt-2 font-semibold">{evento.costo}</p>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Cierre de inscripciones
-                  </p>
-                  <p className="mt-2 font-semibold">{evento.cierre}</p>
-                </div>
-              </div>
+          <section>
+            <h2 className="text-xl font-bold">2. Datos del corredor</h2>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <input name="nombre" value={formData.nombre} onChange={handleChange} required placeholder="Nombre" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+              <input name="apellidos" value={formData.apellidos} onChange={handleChange} required placeholder="Apellidos" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+              <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} required className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+              <select name="sexo" value={formData.sexo} onChange={handleChange} required className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
+                <option value="">Sexo</option>
+                <option value="masculino">Masculino</option>
+                <option value="femenino">Femenino</option>
+              </select>
+              <input name="telefono" value={formData.telefono} onChange={handleChange} required placeholder="Teléfono" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+              <input type="email" name="correo" value={formData.correo} onChange={handleChange} required placeholder="Correo" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+              <input name="ciudad" value={formData.ciudad} onChange={handleChange} required placeholder="Ciudad" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+              <input name="equipo" value={formData.equipo} onChange={handleChange} placeholder="Equipo / club, opcional" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
             </div>
+          </section>
 
-            <div className="rounded-3xl border border-slate-200 bg-slate-900 p-8 text-white shadow-sm">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-300">
-                Categoría seleccionada
-              </p>
+          {setup.shirt_sizes.length > 0 && (
+            <section>
+              <h2 className="text-xl font-bold">3. Playera</h2>
+              <select name="talla" value={formData.talla} onChange={handleChange} required className="mt-5 w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
+                <option value="">Selecciona talla</option>
+                {setup.shirt_sizes.map((talla) => (
+                  <option key={talla.id} value={talla.talla}>
+                    {talla.talla}{talla.stock !== null && talla.stock !== undefined ? ` · ${talla.stock} disponibles` : ''}
+                  </option>
+                ))}
+              </select>
+            </section>
+          )}
 
-              {categoriaSeleccionada ? (
-                <div className="mt-4 space-y-3">
-                  <h3 className="text-2xl font-bold">{categoriaSeleccionada.nombre}</h3>
-                  <p className="text-sm leading-6 text-slate-300">
-                    {categoriaSeleccionada.descripcion || 'Categoría seleccionada para tu registro.'}
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold">
-                      {categoriaSeleccionada.distancia || 'Por definir'}
-                    </span>
-                    <span className="rounded-full bg-red-500 px-3 py-1 text-sm font-semibold">
-                      {categoriaSeleccionada.costo || evento.costo}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-4 text-sm leading-6 text-slate-300">
-                  Selecciona una categoría para ver aquí el resumen de tu inscripción.
+          <section>
+            <h2 className="text-xl font-bold">Contacto de emergencia</h2>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <input name="contactoEmergencia" value={formData.contactoEmergencia} onChange={handleChange} required placeholder="Nombre del contacto" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+              <input name="telefonoEmergencia" value={formData.telefonoEmergencia} onChange={handleChange} required placeholder="Teléfono de emergencia" className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900" />
+            </div>
+          </section>
+
+          {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
+          {success && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{success}</p>}
+
+          <button
+            type="submit"
+            disabled={!formularioValido || sending}
+            className="w-full rounded-2xl bg-slate-900 px-5 py-4 font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sending ? 'Registrando...' : 'Confirmar inscripción'}
+          </button>
+        </form>
+
+        <aside className="space-y-5">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Resumen</p>
+            <h2 className="mt-2 text-2xl font-black">{setup.nombre}</h2>
+            <div className="mt-5 space-y-3 text-sm text-slate-600">
+              <p><span className="font-bold text-slate-900">Modalidad:</span> {modalidadSeleccionada?.nombre || 'Pendiente'}</p>
+              <p><span className="font-bold text-slate-900">Costo:</span> {modalidadSeleccionada ? `$${Number(modalidadSeleccionada.precio || 0).toFixed(2)}` : 'Pendiente'}</p>
+              <p><span className="font-bold text-slate-900">Edad al evento:</span> {edad !== null ? `${edad} años` : 'Pendiente'}</p>
+              <p><span className="font-bold text-slate-900">Talla:</span> {formData.talla || 'Pendiente'}</p>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Categoría calculada</p>
+            {!formData.modality_id ? (
+              <p className="mt-3 text-slate-500">Selecciona una modalidad.</p>
+            ) : categoriasDeModalidad.length === 0 ? (
+              <p className="mt-3 text-slate-500">Este evento todavía no tiene categorías configuradas para esta modalidad.</p>
+            ) : categoriaCalculada ? (
+              <div className="mt-4 rounded-2xl bg-slate-900 p-5 text-white">
+                <p className="text-2xl font-black">{categoriaCalculada.nombre}</p>
+                <p className="mt-1 text-sm text-slate-300">
+                  {categoriaCalculada.edad_min ?? '0'} a {categoriaCalculada.edad_max ?? '∞'} años · {categoriaCalculada.sexo || 'Mixta'}
                 </p>
-              )}
-            </div>
-          </aside>
-        </div>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-700">
+                Captura fecha de nacimiento y sexo para calcular la categoría, o revisa que exista un rango configurado.
+              </p>
+            )}
+          </div>
+        </aside>
       </main>
     </div>
   )
