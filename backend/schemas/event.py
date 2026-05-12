@@ -16,6 +16,10 @@ class EventCreate(BaseModel):
     descripcion: Optional[str] = None
     fecha: date
     lugar: str
+    hora_salida: Optional[str] = None
+    organizador: Optional[str] = None
+    inscripciones_abiertas: bool = True
+    imagen_convocatoria: Optional[str] = None
 
 
 class EventResponse(BaseModel):
@@ -25,6 +29,10 @@ class EventResponse(BaseModel):
     descripcion: Optional[str]
     fecha: date
     lugar: str
+    hora_salida: Optional[str] = None
+    organizador: Optional[str] = None
+    inscripciones_abiertas: bool = True
+    imagen_convocatoria: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
