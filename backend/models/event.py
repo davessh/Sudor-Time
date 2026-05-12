@@ -16,6 +16,10 @@ class Event(Base):
     descripcion = Column(Text, nullable=True)
     fecha = Column(Date, nullable=False)
     lugar = Column(String, nullable=False)
+    hora_salida = Column(String, nullable=True)
+    organizador = Column(String, nullable=True)
+    inscripciones_abiertas = Column(Boolean, default=True)
+    imagen_convocatoria = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
