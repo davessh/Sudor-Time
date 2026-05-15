@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
@@ -14,8 +17,12 @@ from routers.checkpoints import router as checkpoints_router
 from routers.reads import router as reads_router
 from routers.results import router as results_router
 from routers.debug import router as debug_router
+from routers.dashboard import router as dashboard_router
 
 Base.metadata.create_all(bind=engine)
+
+UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="SudorTime API")
 
@@ -39,6 +46,9 @@ app.include_router(checkpoints_router)
 app.include_router(reads_router)
 app.include_router(results_router)
 app.include_router(debug_router)
+app.include_router(dashboard_router)
+
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 @app.get("/")
 def root():
