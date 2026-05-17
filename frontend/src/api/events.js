@@ -22,3 +22,20 @@ export function createEvent(payload) {
     body: JSON.stringify(payload),
   })
 }
+
+export function updateEvent(eventId, payload) {
+  return apiRequest(`/events/${eventId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function uploadEventConvocatoria(eventId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest(`/events/${eventId}/upload-convocatoria`, {
+    method: 'POST',
+    body: formData,
+  })
+}

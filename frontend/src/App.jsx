@@ -11,6 +11,7 @@ import AdminTagsPage from './pages/admin/AdminTagsPage'
 import AdminReadsPage from './pages/admin/AdminReadsPage'
 import AdminEventResultsPage from './pages/admin/AdminEventResultsPage'
 import AdminEventResultsPrintPage from './pages/admin/AdminEventResultsPrintPage'
+import AdminEventSetupPage from './pages/admin/AdminEventSetupPage'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin/eventos" element={<AdminEventsPage />} />
       <Route path="/admin/eventos/:id/inscritos" element={<AdminRegistrationsPage />}/>
+      <Route path="/admin/eventos/:id/configuracion" element={<AdminEventSetupPage />}/>
       <Route path="/admin/tags" element={<AdminTagsPage />} />
       <Route path="/admin/lecturas" element={<AdminReadsPage />} />
       <Route path="/admin/eventos/:id/resultados" element={<AdminEventResultsPage />}/>

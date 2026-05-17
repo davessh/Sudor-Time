@@ -1,12 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from dependencies import get_db
 from models import Event, EventModality, RegistrationProduct, Category, EventShirtSize, Registration
-from schemas.event import EventCreate, EventResponse, EventSetupResponse, EventStatsResponse, CountItem
+from schemas.event import EventCreate, EventResponse, EventStatsResponse, CountItem
 
 router = APIRouter(prefix="/events", tags=["Events"])
+
+UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads" / "eventos"
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _public_upload_path(filename: str) -> str:
+    return f"/uploads/eventos/{filename}"
 
 
 @router.post("", response_model=EventResponse)
@@ -35,21 +45,20 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
     if not event:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
 
-    modalities = db.query(EventModality).filter(
-        EventModality.event_id == event_id
-    ).all()
+    modalities = db.query(EventModality).filter(EventModality.event_id == event_id).all()
+    categories = db.query(Category).filter(Category.event_id == event_id).all()
+    products = db.query(RegistrationProduct).filter(RegistrationProduct.event_id == event_id).all()
 
-    categories = db.query(Category).filter(
-        Category.event_id == event_id
-    ).all()
+    active_shirt_sizes = db.query(EventShirtSize).filter(
+        EventShirtSize.event_id == event_id,
+        EventShirtSize.activa == True,
+    ).order_by(EventShirtSize.id.asc()).all()
 
-    products = db.query(RegistrationProduct).filter(
-        RegistrationProduct.event_id == event_id
-    ).all()
-
-    shirt_sizes = db.query(EventShirtSize).filter(
-        EventShirtSize.event_id == event_id
-    ).all()
+    available_shirt_sizes = [
+        shirt_size
+        for shirt_size in active_shirt_sizes
+        if shirt_size.stock is None or shirt_size.stock > 0
+    ]
 
     return {
         "id": event.id,
@@ -58,13 +67,11 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
         "descripcion": event.descripcion,
         "fecha": event.fecha,
         "lugar": event.lugar,
-
-        # Estos son los campos que ahorita te salen null
         "hora_salida": event.hora_salida,
         "organizador": event.organizador,
         "inscripciones_abiertas": event.inscripciones_abiertas,
         "imagen_convocatoria": event.imagen_convocatoria,
-
+        "has_shirt_sizes": len(active_shirt_sizes) > 0,
         "modalities": [
             {
                 "id": modality.id,
@@ -72,46 +79,86 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
                 "nombre": modality.nombre,
                 "descripcion": modality.descripcion,
                 "precio": float(modality.precio or 0),
-                "distancia_km": getattr(modality, "distancia_km", None),
+                "distancia_km": float(modality.distancia_km) if modality.distancia_km is not None else None,
             }
             for modality in modalities
         ],
-
         "categories": [
             {
                 "id": category.id,
                 "event_id": category.event_id,
-                "modality_id": getattr(category, "modality_id", None),
+                "modality_id": category.modality_id,
                 "nombre": category.nombre,
-                "sexo": getattr(category, "sexo", None),
-                "edad_min": getattr(category, "edad_min", None),
-                "edad_max": getattr(category, "edad_max", None),
+                "sexo": category.sexo,
+                "edad_min": category.edad_min,
+                "edad_max": category.edad_max,
             }
             for category in categories
         ],
-
         "products": [
             {
                 "id": product.id,
                 "event_id": product.event_id,
+                "modality_id": product.modality_id,
                 "nombre": product.nombre,
-                "descripcion": product.descripcion,
                 "precio": float(product.precio or 0),
             }
             for product in products
         ],
-
         "shirt_sizes": [
             {
                 "id": shirt_size.id,
                 "event_id": shirt_size.event_id,
                 "talla": shirt_size.talla,
-                "stock": getattr(shirt_size, "stock", None),
-                "activa": getattr(shirt_size, "activa", True),
+                "stock": shirt_size.stock,
+                "activa": shirt_size.activa,
             }
-            for shirt_size in shirt_sizes
+            for shirt_size in available_shirt_sizes
+        ],
+        "all_shirt_sizes": [
+            {
+                "id": shirt_size.id,
+                "event_id": shirt_size.event_id,
+                "talla": shirt_size.talla,
+                "stock": shirt_size.stock,
+                "activa": shirt_size.activa,
+            }
+            for shirt_size in db.query(EventShirtSize).filter(EventShirtSize.event_id == event_id).order_by(EventShirtSize.id.asc()).all()
         ],
     }
+
+
+@router.post("/{event_id}/upload-convocatoria", response_model=EventResponse)
+async def subir_convocatoria_evento(
+    event_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    evento = db.query(Event).filter(Event.id == event_id).first()
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+
+    extension = Path(file.filename or "").suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Sube una imagen JPG, PNG o WEBP")
+
+    content_type = file.content_type or ""
+    if content_type and not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"evento-{event_id}-{uuid4().hex}{extension}"
+    destination = UPLOADS_DIR / filename
+
+    with destination.open("wb") as buffer:
+        while chunk := await file.read(1024 * 1024):
+            buffer.write(chunk)
+
+    evento.imagen_convocatoria = _public_upload_path(filename)
+    db.commit()
+    db.refresh(evento)
+    return evento
+
 
 @router.get("/{event_id}/stats", response_model=EventStatsResponse)
 def obtener_estadisticas_evento(event_id: int, db: Session = Depends(get_db)):

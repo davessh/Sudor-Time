@@ -67,7 +67,81 @@ def crear_respuesta_detalle(registro: Registration) -> RegistrationDetailRespons
     )
 
 
-def validar_y_resolver_registro(data: RegistrationCreate, db: Session):
+def _query_tallas_activas(db: Session, event_id: int):
+    return db.query(EventShirtSize).filter(
+        EventShirtSize.event_id == event_id,
+        EventShirtSize.activa == True,
+    )
+
+
+def _talla_disponible(talla: EventShirtSize) -> bool:
+    return talla.stock is None or talla.stock > 0
+
+
+def _es_misma_talla_del_registro(registro_actual: Optional[Registration], event_id: int, talla: Optional[str]) -> bool:
+    if not registro_actual:
+        return False
+    return registro_actual.event_id == event_id and registro_actual.talla_playera == talla
+
+
+def resolver_talla_playera(
+    data: RegistrationCreate,
+    db: Session,
+    registro_actual: Optional[Registration] = None,
+) -> Optional[EventShirtSize]:
+    tallas_activas = _query_tallas_activas(db, data.event_id).all()
+
+    if not tallas_activas:
+        return None
+
+    tallas_disponibles = [talla for talla in tallas_activas if _talla_disponible(talla)]
+
+    if not tallas_disponibles and not _es_misma_talla_del_registro(registro_actual, data.event_id, data.talla_playera):
+        raise HTTPException(status_code=400, detail="No hay tallas de playera disponibles para este evento")
+
+    if not data.talla_playera:
+        raise HTTPException(status_code=400, detail="Selecciona una talla de playera")
+
+    talla = _query_tallas_activas(db, data.event_id).filter(
+        EventShirtSize.talla == data.talla_playera,
+    ).first()
+
+    if not talla:
+        raise HTTPException(status_code=400, detail="La talla seleccionada no está activa para este evento")
+
+    if not _talla_disponible(talla) and not _es_misma_talla_del_registro(registro_actual, data.event_id, data.talla_playera):
+        raise HTTPException(status_code=400, detail="La talla seleccionada ya no tiene stock disponible")
+
+    return talla
+
+
+def reservar_talla(db: Session, event_id: int, talla_playera: Optional[str]):
+    if not talla_playera:
+        return
+
+    talla = _query_tallas_activas(db, event_id).filter(EventShirtSize.talla == talla_playera).first()
+    if talla and talla.stock is not None:
+        talla.stock = max(talla.stock - 1, 0)
+
+
+def liberar_talla(db: Session, event_id: Optional[int], talla_playera: Optional[str]):
+    if not event_id or not talla_playera:
+        return
+
+    talla = db.query(EventShirtSize).filter(
+        EventShirtSize.event_id == event_id,
+        EventShirtSize.talla == talla_playera,
+    ).first()
+
+    if talla and talla.stock is not None:
+        talla.stock += 1
+
+
+def validar_y_resolver_registro(
+    data: RegistrationCreate,
+    db: Session,
+    registro_actual: Optional[Registration] = None,
+):
     evento = db.query(Event).filter(Event.id == data.event_id).first()
     if not evento:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -113,25 +187,14 @@ def validar_y_resolver_registro(data: RegistrationCreate, db: Session):
                     detail="No existe una categoría configurada para la edad/sexo del participante en esa modalidad",
                 )
 
-    tallas_configuradas = db.query(EventShirtSize).filter(
-        EventShirtSize.event_id == data.event_id,
-        EventShirtSize.activa == True,
-    ).all()
+    talla = resolver_talla_playera(data, db, registro_actual)
 
-    if tallas_configuradas:
-        if not data.talla_playera:
-            raise HTTPException(status_code=400, detail="Selecciona una talla de playera")
-
-        talla_valida = any(t.talla == data.talla_playera for t in tallas_configuradas)
-        if not talla_valida:
-            raise HTTPException(status_code=400, detail="La talla seleccionada no está disponible para este evento")
-
-    return evento, participante, modalidad, producto, categoria
+    return evento, participante, modalidad, producto, categoria, talla
 
 
 @router.post("", response_model=RegistrationResponse)
 def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
-    _, _, _, _, categoria = validar_y_resolver_registro(data, db)
+    _, _, _, _, categoria, _ = validar_y_resolver_registro(data, db)
 
     existente = db.query(Registration).filter(
         Registration.event_id == data.event_id,
@@ -181,6 +244,7 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
 
     db.add(nuevo)
     db.flush()
+    reservar_talla(db, data.event_id, data.talla_playera)
 
     if tag_obj is not None:
         db.add(RegistrationTag(registration_id=nuevo.id, tag_id=tag_obj.id, activo=True))
@@ -195,6 +259,7 @@ def listar_registros(
     event_id: Optional[int] = None,
     participant_id: Optional[int] = None,
     modality_id: Optional[int] = None,
+    talla_playera: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Registration)
@@ -208,18 +273,28 @@ def listar_registros(
     if modality_id is not None:
         query = query.filter(Registration.modality_id == modality_id)
 
+    if talla_playera:
+        query = query.filter(Registration.talla_playera == talla_playera)
+
     return query.order_by(Registration.id.desc()).all()
 
 
 @router.get("/by-event/{event_id}", response_model=list[RegistrationDetailResponse])
-def listar_registros_por_evento(event_id: int, db: Session = Depends(get_db)):
+def listar_registros_por_evento(
+    event_id: int,
+    talla_playera: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     evento = db.query(Event).filter(Event.id == event_id).first()
     if not evento:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
 
-    registros = db.query(Registration).filter(
-        Registration.event_id == event_id,
-    ).order_by(Registration.id.desc()).all()
+    query = db.query(Registration).filter(Registration.event_id == event_id)
+
+    if talla_playera:
+        query = query.filter(Registration.talla_playera == talla_playera)
+
+    registros = query.order_by(Registration.id.desc()).all()
 
     return [crear_respuesta_detalle(registro) for registro in registros]
 
@@ -239,7 +314,10 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
     if not registro:
         raise HTTPException(status_code=404, detail="Inscripción no encontrada")
 
-    _, _, _, _, categoria = validar_y_resolver_registro(data, db)
+    old_event_id = registro.event_id
+    old_talla = registro.talla_playera
+
+    _, _, _, _, categoria, _ = validar_y_resolver_registro(data, db, registro_actual=registro)
 
     existente = db.query(Registration).filter(
         Registration.event_id == data.event_id,
@@ -280,6 +358,11 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
         if asignado:
             raise HTTPException(status_code=400, detail="Ese tag ya está asignado activamente en este evento")
 
+    talla_cambio = old_event_id != data.event_id or old_talla != data.talla_playera
+    if talla_cambio:
+        liberar_talla(db, old_event_id, old_talla)
+        reservar_talla(db, data.event_id, data.talla_playera)
+
     registro.event_id = data.event_id
     registro.participant_id = data.participant_id
     registro.modality_id = data.modality_id
@@ -309,6 +392,8 @@ def eliminar_registro(registration_id: int, db: Session = Depends(get_db)):
     registro = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registro:
         raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+
+    liberar_talla(db, registro.event_id, registro.talla_playera)
 
     db.delete(registro)
     db.commit()

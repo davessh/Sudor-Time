@@ -131,8 +131,17 @@ export default function RegistrationPage() {
     )
   }, [categoriasDeModalidad, formData.fechaNacimiento, formData.sexo, edad])
 
+  const tallasDisponibles = useMemo(() => {
+    return (setup?.shirt_sizes || []).filter((talla) => {
+      const stockDisponible = talla.stock === null || talla.stock === undefined || Number(talla.stock) > 0
+      return talla.activa !== false && stockDisponible
+    })
+  }, [setup?.shirt_sizes])
+
+  const eventoRequierePlayera = Boolean(setup?.has_shirt_sizes)
+
   const formularioValido = useMemo(() => {
-    const requiereTalla = setup?.shirt_sizes?.length > 0
+    const requiereTalla = eventoRequierePlayera
     const requiereCategoria = categoriasDeModalidad.length > 0
 
     return (
@@ -149,7 +158,7 @@ export default function RegistrationPage() {
       formData.telefonoEmergencia.trim() &&
       (!requiereCategoria || categoriaCalculada)
     )
-  }, [setup?.shirt_sizes, categoriasDeModalidad, categoriaCalculada, formData])
+  }, [eventoRequierePlayera, categoriasDeModalidad, categoriaCalculada, formData])
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -165,7 +174,7 @@ export default function RegistrationPage() {
     setSuccess('')
 
     if (!formularioValido) {
-      setError('Completa los campos obligatorios. Si no aparece categoría, revisa edad, sexo o modalidad.')
+      setError('Completa los campos obligatorios. Si no aparece categoría o talla disponible, revisa configuración, edad, sexo o modalidad.')
       return
     }
 
@@ -311,17 +320,23 @@ export default function RegistrationPage() {
             </div>
           </section>
 
-          {setup.shirt_sizes.length > 0 && (
+          {eventoRequierePlayera && (
             <section>
               <h2 className="text-xl font-bold">3. Playera</h2>
-              <select name="talla" value={formData.talla} onChange={handleChange} required className="mt-5 w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
-                <option value="">Selecciona talla</option>
-                {setup.shirt_sizes.map((talla) => (
-                  <option key={talla.id} value={talla.talla}>
-                    {talla.talla}{talla.stock !== null && talla.stock !== undefined ? ` · ${talla.stock} disponibles` : ''}
-                  </option>
-                ))}
-              </select>
+              {tallasDisponibles.length > 0 ? (
+                <select name="talla" value={formData.talla} onChange={handleChange} required className="mt-5 w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
+                  <option value="">Selecciona talla</option>
+                  {tallasDisponibles.map((talla) => (
+                    <option key={talla.id} value={talla.talla}>
+                      {talla.talla}{talla.stock !== null && talla.stock !== undefined ? ` · ${talla.stock} disponibles` : ' · stock ilimitado'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                  Por ahora no hay tallas de playera disponibles para este evento.
+                </p>
+              )}
             </section>
           )}
 

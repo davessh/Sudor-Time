@@ -23,7 +23,7 @@ export function useEvents() {
         // Adaptador de datos: Transformamos la respuesta de la API a lo que el UI necesita
         const adapted = events.map((ev, i) => ({
           ...ev,
-          imagen: ev.imagen || DEFAULT_IMAGES[i % DEFAULT_IMAGES.length]
+          imagen: ev.imagen_convocatoria || ev.imagen || DEFAULT_IMAGES[i % DEFAULT_IMAGES.length]
         }));
         
         if (isMounted) {

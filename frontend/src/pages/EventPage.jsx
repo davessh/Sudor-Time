@@ -1,17 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
-
-async function getEventSetup(eventId) {
-  const response = await fetch(`${API_BASE_URL}/events/${eventId}/setup`)
-
-  if (!response.ok) {
-    throw new Error('No se pudo cargar la información del evento')
-  }
-
-  return response.json()
-}
+import { getEventSetup } from '../api/events'
+import { getApiAssetUrl } from '../api/client'
 
 function getModalidadNombre(modalidad) {
   return modalidad.nombre || modalidad.name || `Modalidad ${modalidad.id}`
@@ -279,7 +269,7 @@ export default function EventPage() {
 
                 {evento.imagenConvocatoria && (
                   <a
-                    href={evento.imagenConvocatoria}
+                    href={getApiAssetUrl(evento.imagenConvocatoria)}
                     target="_blank"
                     rel="noreferrer"
                     className="group flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 transition-colors hover:text-slate-900"
@@ -295,7 +285,7 @@ export default function EventPage() {
               {evento.imagenConvocatoria ? (
                 <div className="overflow-hidden rounded-2xl border-4 border-white shadow-sm bg-slate-100">
                   <img
-                    src={evento.imagenConvocatoria}
+                    src={getApiAssetUrl(evento.imagenConvocatoria)}
                     alt="Convocatoria del evento"
                     className="w-full h-auto object-contain transition-transform duration-700 hover:scale-[1.02]"
                   />

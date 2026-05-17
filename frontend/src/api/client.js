@@ -1,30 +1,40 @@
-const API_BASE_URL = 'https://sudor-time.onrender.com';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://sudor-time.onrender.com'
+
+export function getApiAssetUrl(path) {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path
+  }
+  return `${API_BASE_URL}${path}`
+}
 
 export async function apiRequest(endpoint, options = {}) {
+  const isFormData = options.body instanceof FormData
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
     },
-    ...options,
-  });
+  })
 
   if (!response.ok) {
-    let message = "Error en la solicitud";
+    let message = 'Error en la solicitud'
 
     try {
-      const errorData = await response.json();
-      message = errorData.detail || message;
+      const errorData = await response.json()
+      message = errorData.detail || message
     } catch {
-      message = response.statusText || message;
+      message = response.statusText || message
     }
 
-    throw new Error(message);
+    throw new Error(message)
   }
 
   if (response.status === 204) {
-    return null;
+    return null
   }
 
-  return response.json();
+  return response.json()
 }
