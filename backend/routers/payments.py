@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -44,6 +45,14 @@ def _get_env(name: str, required: bool = False) -> Optional[str]:
 def _frontend_url(path: str = "") -> str:
     base_url = _get_env("FRONTEND_URL") or "http://localhost:5173"
     return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+
+
+def _is_public_https_url(value: Optional[str]) -> bool:
+    if not value:
+        return False
+
+    parsed = urlparse(value)
+    return parsed.scheme == "https" and bool(parsed.netloc)
 
 
 def _webhook_url() -> str:
@@ -175,7 +184,11 @@ def _build_preference_payload(registration: Registration, expires_at: datetime) 
         payer["surname"] = " ".join(
             part for part in [participant.apellido_paterno, participant.apellido_materno] if part
         )
-    return {
+    success_url = _frontend_url(f"inscripcion/{registration.id}/pago?status=success")
+    failure_url = _frontend_url(f"inscripcion/{registration.id}/pago?status=failure")
+    pending_url = _frontend_url(f"inscripcion/{registration.id}/pago?status=pending")
+
+    payload = {
         "items": [
             {
                 "id": f"registration-{registration.id}",
@@ -190,11 +203,10 @@ def _build_preference_payload(registration: Registration, expires_at: datetime) 
         "external_reference": str(registration.id),
         "notification_url": _webhook_url(),
         "back_urls": {
-            "success": _frontend_url(f"inscripcion/{registration.id}/pago?status=success"),
-            "failure": _frontend_url(f"inscripcion/{registration.id}/pago?status=failure"),
-            "pending": _frontend_url(f"inscripcion/{registration.id}/pago?status=pending"),
+            "success": success_url,
+            "failure": failure_url,
+            "pending": pending_url,
         },
-        "auto_return": "approved",
         "expires": True,
         "expiration_date_to": expires_at.isoformat(),
         "statement_descriptor": "SUDORTIME",
@@ -203,6 +215,11 @@ def _build_preference_payload(registration: Registration, expires_at: datetime) 
             "event_id": registration.event_id,
         },
     }
+
+    if _is_public_https_url(success_url):
+        payload["auto_return"] = "approved"
+
+    return payload
 
 
 def _apply_payment_to_registration(registration: Registration, payment: dict[str, Any]):
