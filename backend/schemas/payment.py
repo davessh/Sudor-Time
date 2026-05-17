@@ -1,0 +1,35 @@
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
+
+from pydantic import BaseModel
+
+
+class MercadoPagoPreferenceCreate(BaseModel):
+    registration_id: int
+
+
+class MercadoPagoPreferenceResponse(BaseModel):
+    registration_id: int
+    preference_id: str
+    checkout_url: str
+    sandbox_checkout_url: Optional[str] = None
+    amount: Decimal
+    currency: str
+    expires_at: datetime
+
+
+class RegistrationPaymentStatusResponse(BaseModel):
+    registration_id: int
+    status: str
+    payment_status: str
+    amount: Optional[Decimal]
+    currency: str
+    payment_provider: Optional[str]
+    payment_preference_id: Optional[str]
+    payment_id: Optional[str]
+    payment_checkout_url: Optional[str]
+    payment_status_detail: Optional[str]
+    payment_expires_at: Optional[datetime]
+    paid_at: Optional[datetime]
+    confirmed_at: Optional[datetime]

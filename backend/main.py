@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -18,7 +19,25 @@ from routers.reads import router as reads_router
 from routers.results import router as results_router
 from routers.debug import router as debug_router
 from routers.dashboard import router as dashboard_router
+from routers.payments import router as payments_router
 from schema_maintenance import ensure_registration_payment_columns
+
+
+def get_cors_origins():
+    origins = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
+
+    frontend_url = os.getenv("FRONTEND_URL")
+    if frontend_url:
+        origins.add(frontend_url.rstrip("/"))
+
+    cors_origins = os.getenv("CORS_ORIGINS")
+    if cors_origins:
+        origins.update(origin.strip().rstrip("/") for origin in cors_origins.split(",") if origin.strip())
+
+    return sorted(origins)
 
 Base.metadata.create_all(bind=engine)
 ensure_registration_payment_columns(engine)
@@ -30,7 +49,7 @@ app = FastAPI(title="SudorTime API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,6 +68,7 @@ app.include_router(reads_router)
 app.include_router(results_router)
 app.include_router(debug_router)
 app.include_router(dashboard_router)
+app.include_router(payments_router)
 
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 

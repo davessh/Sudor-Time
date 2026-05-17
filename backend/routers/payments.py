@@ -1,0 +1,326 @@
+import hashlib
+import hmac
+import os
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from sqlalchemy.orm import Session
+
+from dependencies import get_db
+from models import Registration
+from schemas.payment import (
+    MercadoPagoPreferenceCreate,
+    MercadoPagoPreferenceResponse,
+    RegistrationPaymentStatusResponse,
+)
+
+router = APIRouter(prefix="/payments", tags=["Payments"])
+
+MERCADO_PAGO_API_BASE = "https://api.mercadopago.com"
+PAYMENT_STATUS_MAP = {
+    "approved": ("confirmed", "paid"),
+    "pending": ("pending_payment", "unpaid"),
+    "in_process": ("pending_payment", "unpaid"),
+    "authorized": ("pending_payment", "unpaid"),
+    "rejected": ("pending_payment", "failed"),
+    "cancelled": ("cancelled", "failed"),
+    "refunded": ("cancelled", "refunded"),
+    "charged_back": ("cancelled", "refunded"),
+}
+
+
+def _get_env(name: str, required: bool = False) -> Optional[str]:
+    value = os.getenv(name)
+    if required and not value:
+        raise HTTPException(status_code=500, detail=f"Falta configurar {name}")
+    return value
+
+
+def _frontend_url(path: str = "") -> str:
+    base_url = _get_env("FRONTEND_URL") or "http://localhost:5173"
+    return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+
+
+def _webhook_url() -> str:
+    explicit_url = _get_env("MERCADOPAGO_WEBHOOK_URL")
+    if explicit_url:
+        return explicit_url
+
+    backend_url = _get_env("BACKEND_PUBLIC_URL") or "https://sudor-time.onrender.com"
+    return f"{backend_url.rstrip('/')}/payments/mercadopago/webhook"
+
+
+def _access_token() -> str:
+    return _get_env("MERCADOPAGO_ACCESS_TOKEN", required=True) or ""
+
+
+def _to_money(value) -> Decimal:
+    return Decimal(str(value or "0")).quantize(Decimal("0.01"))
+
+
+def _registration_payment_status(registration: Registration) -> RegistrationPaymentStatusResponse:
+    return RegistrationPaymentStatusResponse(
+        registration_id=registration.id,
+        status=registration.status,
+        payment_status=registration.payment_status,
+        amount=registration.amount,
+        currency=registration.currency,
+        payment_provider=registration.payment_provider,
+        payment_preference_id=registration.payment_preference_id,
+        payment_id=registration.payment_id,
+        payment_checkout_url=registration.payment_checkout_url,
+        payment_status_detail=registration.payment_status_detail,
+        payment_expires_at=registration.payment_expires_at,
+        paid_at=registration.paid_at,
+        confirmed_at=registration.confirmed_at,
+    )
+
+
+def _signature_parts(signature: Optional[str]) -> dict[str, str]:
+    parts: dict[str, str] = {}
+    if not signature:
+        return parts
+
+    for item in signature.split(","):
+        key, _, value = item.partition("=")
+        if key and value:
+            parts[key.strip()] = value.strip()
+    return parts
+
+
+def _validate_webhook_signature(
+    data_id: Optional[str],
+    request_id: Optional[str],
+    signature: Optional[str],
+):
+    secret = _get_env("MERCADOPAGO_WEBHOOK_SECRET")
+    if not secret:
+        if os.getenv("ENVIRONMENT") == "production" or os.getenv("RENDER"):
+            raise HTTPException(status_code=500, detail="Falta configurar MERCADOPAGO_WEBHOOK_SECRET")
+        return
+
+    parts = _signature_parts(signature)
+    timestamp = parts.get("ts")
+    received_signature = parts.get("v1")
+    if not timestamp or not received_signature:
+        raise HTTPException(status_code=401, detail="Firma de webhook incompleta")
+
+    template_parts = []
+    if data_id:
+        template_parts.append(f"id:{data_id};")
+    if request_id:
+        template_parts.append(f"request-id:{request_id};")
+    template_parts.append(f"ts:{timestamp};")
+
+    signed_template = "".join(template_parts)
+    expected_signature = hmac.new(
+        secret.encode(),
+        signed_template.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_signature, received_signature):
+        raise HTTPException(status_code=401, detail="Firma de webhook inválida")
+
+
+async def _mercadopago_request(method: str, path: str, **kwargs) -> dict[str, Any]:
+    headers = kwargs.pop("headers", {})
+    headers["Authorization"] = f"Bearer {_access_token()}"
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        response = await client.request(
+            method,
+            f"{MERCADO_PAGO_API_BASE}{path}",
+            headers=headers,
+            **kwargs,
+        )
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail="Mercado Pago rechazó la solicitud. Revisa credenciales y configuración.",
+        )
+
+    return response.json()
+
+
+def _build_preference_payload(registration: Registration, expires_at: datetime) -> dict[str, Any]:
+    participant = registration.participant
+    event = registration.event
+    title = f"Inscripción {event.nombre}"
+
+    payer: dict[str, Any] = {}
+    if participant.correo:
+        payer["email"] = participant.correo
+    if participant.nombre:
+        payer["name"] = participant.nombre
+    if participant.apellido_paterno:
+        payer["surname"] = " ".join(
+            part for part in [participant.apellido_paterno, participant.apellido_materno] if part
+        )
+    if participant.telefono:
+        payer["phone"] = {"number": participant.telefono}
+
+    return {
+        "items": [
+            {
+                "id": f"registration-{registration.id}",
+                "title": title,
+                "description": registration.modality.nombre if registration.modality else title,
+                "quantity": 1,
+                "currency_id": registration.currency or "MXN",
+                "unit_price": float(_to_money(registration.amount)),
+            }
+        ],
+        "payer": payer,
+        "external_reference": str(registration.id),
+        "notification_url": _webhook_url(),
+        "back_urls": {
+            "success": _frontend_url(f"inscripcion/{registration.id}/pago?status=success"),
+            "failure": _frontend_url(f"inscripcion/{registration.id}/pago?status=failure"),
+            "pending": _frontend_url(f"inscripcion/{registration.id}/pago?status=pending"),
+        },
+        "auto_return": "approved",
+        "expires": True,
+        "expiration_date_to": expires_at.isoformat(),
+        "statement_descriptor": "SUDORTIME",
+        "metadata": {
+            "registration_id": registration.id,
+            "event_id": registration.event_id,
+        },
+    }
+
+
+def _apply_payment_to_registration(registration: Registration, payment: dict[str, Any]):
+    mp_status = payment.get("status")
+    status_detail = payment.get("status_detail")
+    registration_status, payment_status = PAYMENT_STATUS_MAP.get(
+        mp_status,
+        ("pending_payment", "unpaid"),
+    )
+
+    transaction_amount = _to_money(payment.get("transaction_amount"))
+    expected_amount = _to_money(registration.amount)
+    currency = payment.get("currency_id") or registration.currency
+
+    if transaction_amount != expected_amount or currency != registration.currency:
+        registration.payment_status = "failed"
+        registration.payment_status_detail = "amount_or_currency_mismatch"
+        return
+
+    registration.payment_provider = "mercado_pago"
+    registration.payment_id = str(payment.get("id") or "")
+    registration.payment_reference = str(payment.get("id") or "")
+    registration.payment_status_detail = status_detail
+    registration.status = registration_status
+    registration.payment_status = payment_status
+
+    if payment_status == "paid":
+        approved_at = payment.get("date_approved")
+        registration.paid_at = datetime.fromisoformat(approved_at.replace("Z", "+00:00")) if approved_at else datetime.now(timezone.utc)
+        registration.confirmed_at = registration.paid_at
+    elif registration_status == "cancelled":
+        registration.cancelled_at = datetime.now(timezone.utc)
+
+
+@router.post("/mercadopago/create-preference", response_model=MercadoPagoPreferenceResponse)
+async def crear_preferencia_mercadopago(
+    data: MercadoPagoPreferenceCreate,
+    db: Session = Depends(get_db),
+):
+    registration = db.query(Registration).filter(Registration.id == data.registration_id).first()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+
+    if registration.status not in {"pending_payment", "confirmed"}:
+        raise HTTPException(status_code=400, detail="La inscripción no está disponible para pago")
+
+    if registration.payment_status == "paid" or registration.status == "confirmed":
+        return MercadoPagoPreferenceResponse(
+            registration_id=registration.id,
+            preference_id=registration.payment_preference_id or "",
+            checkout_url=registration.payment_checkout_url or "",
+            sandbox_checkout_url=None,
+            amount=registration.amount,
+            currency=registration.currency,
+            expires_at=registration.payment_expires_at or datetime.now(timezone.utc),
+        )
+
+    if not registration.amount or _to_money(registration.amount) <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="La inscripción no tiene monto válido para pagar")
+
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=48)
+    payload = _build_preference_payload(registration, expires_at)
+    preference = await _mercadopago_request("POST", "/checkout/preferences", json=payload)
+
+    checkout_url = preference.get("init_point") or preference.get("sandbox_init_point")
+    if not checkout_url:
+        raise HTTPException(status_code=502, detail="Mercado Pago no devolvió URL de checkout")
+
+    registration.payment_provider = "mercado_pago"
+    registration.payment_preference_id = preference.get("id")
+    registration.payment_reference = preference.get("id")
+    registration.payment_checkout_url = checkout_url
+    registration.payment_expires_at = expires_at
+    registration.payment_status = "unpaid"
+    db.commit()
+    db.refresh(registration)
+
+    return MercadoPagoPreferenceResponse(
+        registration_id=registration.id,
+        preference_id=registration.payment_preference_id,
+        checkout_url=registration.payment_checkout_url,
+        sandbox_checkout_url=preference.get("sandbox_init_point"),
+        amount=registration.amount,
+        currency=registration.currency,
+        expires_at=expires_at,
+    )
+
+
+@router.post("/mercadopago/webhook")
+async def webhook_mercadopago(
+    request: Request,
+    x_signature: Optional[str] = Header(default=None),
+    x_request_id: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    payload = await request.json()
+    query_data_id = request.query_params.get("data.id")
+    payment_id = query_data_id or str(payload.get("data", {}).get("id") or payload.get("id") or "")
+    notification_type = request.query_params.get("type") or payload.get("type")
+
+    _validate_webhook_signature(payment_id, x_request_id, x_signature)
+
+    if notification_type != "payment" or not payment_id:
+        return {"status": "ignored"}
+
+    payment = await _mercadopago_request("GET", f"/v1/payments/{payment_id}")
+    external_reference = payment.get("external_reference")
+    if not external_reference:
+        return {"status": "ignored"}
+
+    try:
+        registration_id = int(external_reference)
+    except (TypeError, ValueError):
+        return {"status": "ignored"}
+
+    registration = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not registration:
+        return {"status": "ignored"}
+
+    _apply_payment_to_registration(registration, payment)
+    db.commit()
+
+    return {"status": "received"}
+
+
+@router.get("/registrations/{registration_id}/status", response_model=RegistrationPaymentStatusResponse)
+def obtener_estado_pago_registro(registration_id: int, db: Session = Depends(get_db)):
+    registration = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+
+    return _registration_payment_status(registration)

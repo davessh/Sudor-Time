@@ -39,6 +39,11 @@ class RegistrationResponse(BaseModel):
     currency: str
     payment_provider: Optional[str]
     payment_reference: Optional[str]
+    payment_preference_id: Optional[str]
+    payment_id: Optional[str]
+    payment_checkout_url: Optional[str]
+    payment_status_detail: Optional[str]
+    payment_expires_at: Optional[datetime]
     paid_at: Optional[datetime]
     confirmed_at: Optional[datetime]
     cancelled_at: Optional[datetime]
@@ -84,6 +89,11 @@ class RegistrationDetailResponse(BaseModel):
     currency: str
     payment_provider: Optional[str]
     payment_reference: Optional[str]
+    payment_preference_id: Optional[str]
+    payment_id: Optional[str]
+    payment_checkout_url: Optional[str]
+    payment_status_detail: Optional[str]
+    payment_expires_at: Optional[datetime]
     paid_at: Optional[datetime]
     confirmed_at: Optional[datetime]
     cancelled_at: Optional[datetime]

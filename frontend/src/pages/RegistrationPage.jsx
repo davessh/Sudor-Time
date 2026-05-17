@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { getEventSetup } from '../api/events'
 import { createParticipant } from '../api/participants'
@@ -71,6 +71,7 @@ function formatMoney(value) {
 
 export default function RegistrationPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
 
   const [setup, setSetup] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -223,7 +224,7 @@ export default function RegistrationPage() {
         telefono_emergencia: formData.telefonoEmergencia.trim(),
       })
 
-      await createRegistration({
+      const registro = await createRegistration({
         event_id: Number(id),
         participant_id: participante.id,
         modality_id: Number(formData.modality_id),
@@ -233,6 +234,7 @@ export default function RegistrationPage() {
       })
 
       setSuccess('Preinscripción recibida. Tu lugar queda pendiente hasta completar el pago correspondiente.')
+      navigate(`/inscripcion/${registro.id}/pago`)
       setFormData({
         modality_id: '',
         product_id: '',
