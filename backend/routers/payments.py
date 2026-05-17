@@ -34,6 +34,8 @@ PAYMENT_STATUS_MAP = {
 
 def _get_env(name: str, required: bool = False) -> Optional[str]:
     value = os.getenv(name)
+    if value:
+        value = value.strip()
     if required and not value:
         raise HTTPException(status_code=500, detail=f"Falta configurar {name}")
     return value
@@ -139,9 +141,21 @@ async def _mercadopago_request(method: str, path: str, **kwargs) -> dict[str, An
         )
 
     if response.status_code >= 400:
+        try:
+            error_data = response.json()
+        except ValueError:
+            error_data = {"message": response.text}
+
+        mp_message = error_data.get("message") or error_data.get("error") or "Solicitud rechazada"
+        cause = error_data.get("cause")
+        if isinstance(cause, list) and cause:
+            first_cause = cause[0]
+            if isinstance(first_cause, dict):
+                mp_message = first_cause.get("description") or first_cause.get("message") or mp_message
+
         raise HTTPException(
             status_code=502,
-            detail="Mercado Pago rechazó la solicitud. Revisa credenciales y configuración.",
+            detail=f"Mercado Pago rechazó la solicitud: {mp_message}",
         )
 
     return response.json()
@@ -161,9 +175,6 @@ def _build_preference_payload(registration: Registration, expires_at: datetime) 
         payer["surname"] = " ".join(
             part for part in [participant.apellido_paterno, participant.apellido_materno] if part
         )
-    if participant.telefono:
-        payer["phone"] = {"number": participant.telefono}
-
     return {
         "items": [
             {
