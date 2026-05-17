@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -16,6 +16,14 @@ class RegistrationCreate(BaseModel):
     talla_playera: Optional[str] = None
 
 
+class RegistrationStatusUpdate(BaseModel):
+    status: Literal["pending_payment", "confirmed", "cancelled", "expired"] = "pending_payment"
+    payment_status: Optional[Literal["unpaid", "paid", "failed", "refunded", "manual", "untracked"]] = None
+    payment_provider: Optional[str] = None
+    payment_reference: Optional[str] = None
+    paid_at: Optional[datetime] = None
+
+
 class RegistrationResponse(BaseModel):
     id: int
     event_id: int
@@ -25,6 +33,15 @@ class RegistrationResponse(BaseModel):
     category_id: Optional[int]
     numero_competidor: Optional[str]
     talla_playera: Optional[str]
+    status: str
+    payment_status: str
+    amount: Optional[Decimal]
+    currency: str
+    payment_provider: Optional[str]
+    payment_reference: Optional[str]
+    paid_at: Optional[datetime]
+    confirmed_at: Optional[datetime]
+    cancelled_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,6 +78,15 @@ class RegistrationDetailResponse(BaseModel):
 
     numero_competidor: Optional[str]
     talla_playera: Optional[str]
+    status: str
+    payment_status: str
+    amount: Optional[Decimal]
+    currency: str
+    payment_provider: Optional[str]
+    payment_reference: Optional[str]
+    paid_at: Optional[datetime]
+    confirmed_at: Optional[datetime]
+    cancelled_at: Optional[datetime]
 
     tag_id: Optional[int]
     tag_codigo: Optional[str]

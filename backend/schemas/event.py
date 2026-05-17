@@ -57,3 +57,5 @@ class EventStatsResponse(BaseModel):
     por_categoria: list[CountItem]
     por_talla: list[CountItem]
     por_producto: list[CountItem]
+    por_estado: list[CountItem] = []
+    por_pago: list[CountItem] = []

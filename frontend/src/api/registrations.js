@@ -14,6 +14,13 @@ export function updateRegistration(registrationId, payload) {
   })
 }
 
+export function updateRegistrationStatus(registrationId, payload) {
+  return apiRequest(`/registrations/${registrationId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function getEventRegistrations(eventId) {
   return apiRequest(`/registrations/by-event/${eventId}`)
 }

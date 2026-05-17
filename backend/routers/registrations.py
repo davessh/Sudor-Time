@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,10 +21,14 @@ from schemas.registration import (
     RegistrationCreate,
     RegistrationResponse,
     RegistrationDetailResponse,
+    RegistrationStatusUpdate,
 )
 from services.registration_helpers import calcular_edad, buscar_categoria_automatica
 
 router = APIRouter(prefix="/registrations", tags=["Registrations"])
+
+ACTIVE_STOCK_STATUSES = {"pending_payment", "confirmed"}
+CLOSED_REGISTRATION_STATUSES = {"cancelled", "expired"}
 
 
 def obtener_tag_activo_de_registro(registro: Registration) -> Optional[RegistrationTag]:
@@ -62,6 +68,15 @@ def crear_respuesta_detalle(registro: Registration) -> RegistrationDetailRespons
         categoria_nombre=registro.category.nombre if registro.category else None,
         numero_competidor=registro.numero_competidor,
         talla_playera=registro.talla_playera,
+        status=registro.status,
+        payment_status=registro.payment_status,
+        amount=registro.amount,
+        currency=registro.currency,
+        payment_provider=registro.payment_provider,
+        payment_reference=registro.payment_reference,
+        paid_at=registro.paid_at,
+        confirmed_at=registro.confirmed_at,
+        cancelled_at=registro.cancelled_at,
         tag_id=tag_activo.tag.id if tag_activo else None,
         tag_codigo=tag_activo.tag.codigo if tag_activo else None,
     )
@@ -192,17 +207,28 @@ def validar_y_resolver_registro(
     return evento, participante, modalidad, producto, categoria, talla
 
 
+def calcular_monto_inscripcion(modalidad: EventModality, producto: Optional[RegistrationProduct]) -> Decimal:
+    total = Decimal(modalidad.precio or 0)
+    if producto:
+        total += Decimal(producto.precio or 0)
+    return total
+
+
 @router.post("", response_model=RegistrationResponse)
 def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
-    _, _, _, _, categoria, _ = validar_y_resolver_registro(data, db)
+    evento, _, modalidad, producto, categoria, _ = validar_y_resolver_registro(data, db)
+
+    if not evento.inscripciones_abiertas:
+        raise HTTPException(status_code=400, detail="Las inscripciones de este evento están cerradas")
 
     existente = db.query(Registration).filter(
         Registration.event_id == data.event_id,
         Registration.participant_id == data.participant_id,
+        ~Registration.status.in_(CLOSED_REGISTRATION_STATUSES),
     ).first()
 
     if existente:
-        raise HTTPException(status_code=400, detail="El participante ya está inscrito en este evento")
+        raise HTTPException(status_code=400, detail="El participante ya tiene una inscripción activa o pendiente en este evento")
 
     if data.numero_competidor:
         numero_repetido = db.query(Registration).filter(
@@ -240,6 +266,10 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
         category_id=categoria.id if categoria else data.category_id,
         numero_competidor=data.numero_competidor,
         talla_playera=data.talla_playera,
+        status="pending_payment",
+        payment_status="unpaid",
+        amount=calcular_monto_inscripcion(modalidad, producto),
+        currency="MXN",
     )
 
     db.add(nuevo)
@@ -260,6 +290,8 @@ def listar_registros(
     participant_id: Optional[int] = None,
     modality_id: Optional[int] = None,
     talla_playera: Optional[str] = None,
+    status: Optional[str] = None,
+    payment_status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Registration)
@@ -276,6 +308,12 @@ def listar_registros(
     if talla_playera:
         query = query.filter(Registration.talla_playera == talla_playera)
 
+    if status:
+        query = query.filter(Registration.status == status)
+
+    if payment_status:
+        query = query.filter(Registration.payment_status == payment_status)
+
     return query.order_by(Registration.id.desc()).all()
 
 
@@ -283,6 +321,8 @@ def listar_registros(
 def listar_registros_por_evento(
     event_id: int,
     talla_playera: Optional[str] = None,
+    status: Optional[str] = None,
+    payment_status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     evento = db.query(Event).filter(Event.id == event_id).first()
@@ -293,6 +333,12 @@ def listar_registros_por_evento(
 
     if talla_playera:
         query = query.filter(Registration.talla_playera == talla_playera)
+
+    if status:
+        query = query.filter(Registration.status == status)
+
+    if payment_status:
+        query = query.filter(Registration.payment_status == payment_status)
 
     registros = query.order_by(Registration.id.desc()).all()
 
@@ -323,10 +369,11 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
         Registration.event_id == data.event_id,
         Registration.participant_id == data.participant_id,
         Registration.id != registration_id,
+        ~Registration.status.in_(CLOSED_REGISTRATION_STATUSES),
     ).first()
 
     if existente:
-        raise HTTPException(status_code=400, detail="El participante ya está inscrito en este evento")
+        raise HTTPException(status_code=400, detail="El participante ya tiene una inscripción activa o pendiente en este evento")
 
     if data.numero_competidor:
         numero_repetido = db.query(Registration).filter(
@@ -387,13 +434,76 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
     return registro
 
 
+@router.patch("/{registration_id}/status", response_model=RegistrationResponse)
+def actualizar_estado_registro(
+    registration_id: int,
+    data: RegistrationStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    registro = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not registro:
+        raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+
+    previous_status = registro.status
+    new_status = data.status
+    now = datetime.now(timezone.utc)
+
+    if previous_status in ACTIVE_STOCK_STATUSES and new_status in CLOSED_REGISTRATION_STATUSES:
+        liberar_talla(db, registro.event_id, registro.talla_playera)
+
+    if previous_status in CLOSED_REGISTRATION_STATUSES and new_status in ACTIVE_STOCK_STATUSES:
+        resolver_talla_playera(
+            RegistrationCreate(
+                event_id=registro.event_id,
+                participant_id=registro.participant_id,
+                modality_id=registro.modality_id,
+                product_id=registro.product_id,
+                category_id=registro.category_id,
+                numero_competidor=registro.numero_competidor,
+                talla_playera=registro.talla_playera,
+            ),
+            db,
+            registro_actual=registro,
+        )
+        reservar_talla(db, registro.event_id, registro.talla_playera)
+
+    registro.status = new_status
+
+    if data.payment_status:
+        registro.payment_status = data.payment_status
+
+    if data.payment_provider is not None:
+        registro.payment_provider = data.payment_provider
+
+    if data.payment_reference is not None:
+        registro.payment_reference = data.payment_reference
+
+    if data.paid_at:
+        registro.paid_at = data.paid_at
+
+    if new_status == "confirmed":
+        registro.confirmed_at = now
+        if registro.payment_status == "unpaid":
+            registro.payment_status = data.payment_status or "manual"
+        if not registro.paid_at and registro.payment_status in {"paid", "manual"}:
+            registro.paid_at = now
+
+    if new_status in CLOSED_REGISTRATION_STATUSES:
+        registro.cancelled_at = now
+
+    db.commit()
+    db.refresh(registro)
+    return registro
+
+
 @router.delete("/{registration_id}")
 def eliminar_registro(registration_id: int, db: Session = Depends(get_db)):
     registro = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registro:
         raise HTTPException(status_code=404, detail="Inscripción no encontrada")
 
-    liberar_talla(db, registro.event_id, registro.talla_playera)
+    if registro.status in ACTIVE_STOCK_STATUSES:
+        liberar_talla(db, registro.event_id, registro.talla_playera)
 
     db.delete(registro)
     db.commit()

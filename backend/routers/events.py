@@ -203,6 +203,22 @@ def obtener_estadisticas_evento(event_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+    por_estado = (
+        db.query(Registration.status, func.count(Registration.id))
+        .filter(Registration.event_id == event_id)
+        .group_by(Registration.status)
+        .order_by(Registration.status.asc())
+        .all()
+    )
+
+    por_pago = (
+        db.query(Registration.payment_status, func.count(Registration.id))
+        .filter(Registration.event_id == event_id)
+        .group_by(Registration.payment_status)
+        .order_by(Registration.payment_status.asc())
+        .all()
+    )
+
     return EventStatsResponse(
         event_id=event_id,
         total_inscritos=total,
@@ -210,6 +226,8 @@ def obtener_estadisticas_evento(event_id: int, db: Session = Depends(get_db)):
         por_categoria=[CountItem(id=row[0], nombre=row[1], total=row[2]) for row in por_categoria],
         por_producto=[CountItem(id=row[0], nombre=row[1], total=row[2]) for row in por_producto],
         por_talla=[CountItem(id=None, nombre=row[0] or "Sin talla", total=row[1]) for row in por_talla],
+        por_estado=[CountItem(id=None, nombre=row[0] or "Sin estado", total=row[1]) for row in por_estado],
+        por_pago=[CountItem(id=None, nombre=row[0] or "Sin pago", total=row[1]) for row in por_pago],
     )
 
 

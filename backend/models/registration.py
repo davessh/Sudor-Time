@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from database import Base
 
 
@@ -16,6 +17,19 @@ class Registration(Base):
 
     numero_competidor = Column(String, nullable=True)
     talla_playera = Column(String, nullable=True)
+
+    status = Column(String(32), nullable=False, default="pending_payment")
+    payment_status = Column(String(32), nullable=False, default="unpaid")
+    amount = Column(Numeric(10, 2), nullable=True)
+    currency = Column(String(3), nullable=False, default="MXN")
+    payment_provider = Column(String(50), nullable=True)
+    payment_reference = Column(String(255), nullable=True)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     event = relationship("Event", back_populates="registrations")
     participant = relationship("Participant", back_populates="registrations")

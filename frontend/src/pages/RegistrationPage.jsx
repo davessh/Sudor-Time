@@ -62,6 +62,13 @@ function separarApellidos(apellidos) {
   }
 }
 
+function formatMoney(value) {
+  return Number(value || 0).toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+  })
+}
+
 export default function RegistrationPage() {
   const { id } = useParams()
 
@@ -73,6 +80,7 @@ export default function RegistrationPage() {
 
   const [formData, setFormData] = useState({
     modality_id: '',
+    product_id: '',
     nombre: '',
     apellidos: '',
     fechaNacimiento: '',
@@ -120,6 +128,23 @@ export default function RegistrationPage() {
     )
   }, [setup, formData.modality_id])
 
+  const productosDeModalidad = useMemo(() => {
+    if (!setup || !formData.modality_id) return []
+
+    return (setup.products || []).filter((producto) => {
+      return !producto.modality_id || String(producto.modality_id) === String(formData.modality_id)
+    })
+  }, [setup, formData.modality_id])
+
+  const productoSeleccionado = useMemo(() => {
+    if (!formData.product_id) return null
+    return productosDeModalidad.find((producto) => String(producto.id) === String(formData.product_id)) || null
+  }, [productosDeModalidad, formData.product_id])
+
+  const totalEstimado = useMemo(() => {
+    return Number(modalidadSeleccionada?.precio || 0) + Number(productoSeleccionado?.precio || 0)
+  }, [modalidadSeleccionada, productoSeleccionado])
+
   const categoriaCalculada = useMemo(() => {
     if (!categoriasDeModalidad.length) return null
     if (!formData.fechaNacimiento || !formData.sexo) return null
@@ -165,6 +190,7 @@ export default function RegistrationPage() {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+      ...(name === 'modality_id' ? { product_id: '' } : {}),
     }))
   }
 
@@ -201,13 +227,15 @@ export default function RegistrationPage() {
         event_id: Number(id),
         participant_id: participante.id,
         modality_id: Number(formData.modality_id),
+        product_id: formData.product_id ? Number(formData.product_id) : null,
         category_id: categoriaCalculada?.id || null,
         talla_playera: formData.talla || null,
       })
 
-      setSuccess('Inscripción realizada correctamente.')
+      setSuccess('Preinscripción recibida. Tu lugar queda pendiente hasta completar el pago correspondiente.')
       setFormData({
         modality_id: '',
+        product_id: '',
         nombre: '',
         apellidos: '',
         fechaNacimiento: '',
@@ -302,6 +330,20 @@ export default function RegistrationPage() {
             </div>
           </section>
 
+          {productosDeModalidad.length > 0 && (
+            <section>
+              <h2 className="text-xl font-bold">Paquete</h2>
+              <select name="product_id" value={formData.product_id} onChange={handleChange} className="mt-5 w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
+                <option value="">Sin paquete adicional</option>
+                {productosDeModalidad.map((producto) => (
+                  <option key={producto.id} value={producto.id}>
+                    {producto.nombre} · {formatMoney(producto.precio)}
+                  </option>
+                ))}
+              </select>
+            </section>
+          )}
+
           <section>
             <h2 className="text-xl font-bold">2. Datos del corredor</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -356,7 +398,7 @@ export default function RegistrationPage() {
             disabled={!formularioValido || sending}
             className="w-full rounded-2xl bg-slate-900 px-5 py-4 font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {sending ? 'Registrando...' : 'Confirmar inscripción'}
+            {sending ? 'Registrando...' : 'Crear preinscripción'}
           </button>
         </form>
 
@@ -366,7 +408,8 @@ export default function RegistrationPage() {
             <h2 className="mt-2 text-2xl font-black">{setup.nombre}</h2>
             <div className="mt-5 space-y-3 text-sm text-slate-600">
               <p><span className="font-bold text-slate-900">Modalidad:</span> {modalidadSeleccionada?.nombre || 'Pendiente'}</p>
-              <p><span className="font-bold text-slate-900">Costo:</span> {modalidadSeleccionada ? `$${Number(modalidadSeleccionada.precio || 0).toFixed(2)}` : 'Pendiente'}</p>
+              <p><span className="font-bold text-slate-900">Paquete:</span> {productoSeleccionado?.nombre || 'Sin paquete adicional'}</p>
+              <p><span className="font-bold text-slate-900">Total:</span> {modalidadSeleccionada ? formatMoney(totalEstimado) : 'Pendiente'}</p>
               <p><span className="font-bold text-slate-900">Edad al evento:</span> {edad !== null ? `${edad} años` : 'Pendiente'}</p>
               <p><span className="font-bold text-slate-900">Talla:</span> {formData.talla || 'Pendiente'}</p>
             </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getEventById, getEventStats } from '../../api/events'
-import { getEventRegistrations, updateRegistration } from '../../api/registrations'
+import { getEventRegistrations, updateRegistration, updateRegistrationStatus } from '../../api/registrations'
 import { getTags } from '../../api/tags'
 
 export default function AdminRegistrationsPage() {
@@ -19,7 +19,17 @@ export default function AdminRegistrationsPage() {
 
   const [filtroTalla, setFiltroTalla] = useState('')
   const [filtroModalidad, setFiltroModalidad] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
   const [busqueda, setBusqueda] = useState('')
+
+  const statusOptions = [
+    { value: 'pending_payment', label: 'Pendiente de pago' },
+    { value: 'confirmed', label: 'Confirmada' },
+    { value: 'cancelled', label: 'Cancelada' },
+    { value: 'expired', label: 'Expirada' },
+  ]
+
+  const statusLabels = Object.fromEntries(statusOptions.map((item) => [item.value, item.label]))
 
   useEffect(() => {
     loadData()
@@ -74,16 +84,18 @@ export default function AdminRegistrationsPage() {
       const tallaActual = registro.talla_playera || 'Sin talla'
       const coincideTalla = !filtroTalla || tallaActual === filtroTalla
       const coincideModalidad = !filtroModalidad || String(registro.modality_id) === String(filtroModalidad)
+      const coincideEstado = !filtroEstado || registro.status === filtroEstado
       const nombreCompleto = `${registro.participante_nombre} ${registro.participante_apellido_paterno} ${registro.participante_apellido_materno || ''} ${registro.numero_competidor || ''} ${registro.correo || ''}`.toLowerCase()
       const coincideBusqueda = !texto || nombreCompleto.includes(texto)
 
-      return coincideTalla && coincideModalidad && coincideBusqueda
+      return coincideTalla && coincideModalidad && coincideEstado && coincideBusqueda
     })
-  }, [registros, filtroTalla, filtroModalidad, busqueda])
+  }, [registros, filtroTalla, filtroModalidad, filtroEstado, busqueda])
 
   function limpiarFiltros() {
     setFiltroTalla('')
     setFiltroModalidad('')
+    setFiltroEstado('')
     setBusqueda('')
   }
 
@@ -119,6 +131,24 @@ export default function AdminRegistrationsPage() {
     }
   }
 
+  async function cambiarEstado(registro, status) {
+    try {
+      setSavingId(registro.id)
+      setError('')
+
+      await updateRegistrationStatus(registro.id, {
+        status,
+        payment_status: status === 'confirmed' ? 'manual' : registro.payment_status,
+      })
+
+      await loadData()
+    } catch (err) {
+      setError(err.message || 'No se pudo actualizar el estado de la inscripción')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   function StatBox({ title, items }) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -129,7 +159,13 @@ export default function AdminRegistrationsPage() {
               <button
                 type="button"
                 key={`${item.nombre}-${index}`}
-                onClick={() => title === 'Por talla' ? setFiltroTalla(item.nombre) : undefined}
+                onClick={() => {
+                  if (title === 'Por talla') setFiltroTalla(item.nombre)
+                  if (title === 'Por estado') {
+                    const statusValue = statusOptions.find((option) => option.label === item.nombre)?.value
+                    if (statusValue) setFiltroEstado(statusValue)
+                  }
+                }}
                 className="flex w-full items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-left text-sm hover:bg-slate-100"
               >
                 <span>{item.nombre}</span>
@@ -164,7 +200,7 @@ export default function AdminRegistrationsPage() {
     <AdminLayout title="Inscritos por evento" subtitle={`${evento.nombre} · ${evento.fecha} · ${evento.lugar}`}>
       {error && <p className="mb-6 rounded-2xl bg-red-50 px-4 py-3 font-semibold text-red-700">Error: {error}</p>}
 
-      <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white">
           <p className="text-sm uppercase tracking-widest text-slate-300">Total inscritos</p>
           <p className="mt-2 text-4xl font-black">{stats?.total_inscritos ?? registros.length}</p>
@@ -173,21 +209,26 @@ export default function AdminRegistrationsPage() {
         <StatBox title="Por modalidad" items={stats?.por_modalidad} />
         <StatBox title="Por categoría" items={stats?.por_categoria} />
         <StatBox title="Por talla" items={stats?.por_talla} />
+        <StatBox title="Por estado" items={stats?.por_estado?.map((item) => ({ ...item, nombre: statusLabels[item.nombre] || item.nombre }))} />
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <h2 className="text-2xl font-bold">Listado de inscritos</h2>
-            <p className="mt-1 text-sm text-slate-500">Filtra por talla de playera, modalidad o busca por nombre, número o correo.</p>
+            <p className="mt-1 text-sm text-slate-500">Filtra por estado, talla, modalidad o busca por nombre, número o correo.</p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
             {registrosFiltrados.length} de {registros.length} inscritos
           </span>
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
+        <div className="mb-6 grid gap-4 md:grid-cols-5">
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar corredor..." className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900 md:col-span-2" />
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
+            <option value="">Todos los estados</option>
+            {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
           <select value={filtroTalla} onChange={(e) => setFiltroTalla(e.target.value)} className="rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
             <option value="">Todas las tallas</option>
             {tallas.map((talla) => <option key={talla} value={talla}>{talla}</option>)}
@@ -207,10 +248,13 @@ export default function AdminRegistrationsPage() {
           <div className="space-y-4">
             {registrosFiltrados.map((registro) => (
               <div key={registro.id} className="rounded-2xl border border-slate-200 p-5">
-                <div className="grid gap-5 lg:grid-cols-7">
+                <div className="grid gap-5 lg:grid-cols-8">
                   <div className="lg:col-span-2">
                     <p className="text-lg font-bold">
                       {registro.participante_nombre} {registro.participante_apellido_paterno} {registro.participante_apellido_materno || ''}
+                    </p>
+                    <p className="mt-2 inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                      {statusLabels[registro.status] || registro.status || 'Sin estado'}
                     </p>
                     <p className="mt-1 text-sm text-slate-500">
                       {registro.sexo || 'Sexo no definido'} · {registro.edad_evento ?? 'Edad no definida'} años
@@ -230,6 +274,13 @@ export default function AdminRegistrationsPage() {
                     <select value={registro.tagIdEditable} onChange={(e) => handleTagChange(registro.id, e.target.value)} className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900">
                       <option value="">Sin tag</option>
                       {tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.codigo}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700">Estado</label>
+                    <select value={registro.status || 'pending_payment'} onChange={(e) => cambiarEstado(registro, e.target.value)} disabled={savingId === registro.id} className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900 disabled:opacity-60">
+                      {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                     </select>
                   </div>
 

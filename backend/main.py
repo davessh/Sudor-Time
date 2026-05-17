@@ -18,8 +18,10 @@ from routers.reads import router as reads_router
 from routers.results import router as results_router
 from routers.debug import router as debug_router
 from routers.dashboard import router as dashboard_router
+from schema_maintenance import ensure_registration_payment_columns
 
 Base.metadata.create_all(bind=engine)
+ensure_registration_payment_columns(engine)
 
 UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
