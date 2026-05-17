@@ -1,3 +1,5 @@
+import { getAdminToken } from '../auth/adminAuth'
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://sudor-time.onrender.com'
 
 export function getApiAssetUrl(path) {
@@ -10,11 +12,13 @@ export function getApiAssetUrl(path) {
 
 export async function apiRequest(endpoint, options = {}) {
   const isFormData = options.body instanceof FormData
+  const adminToken = getAdminToken()
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
       ...(options.headers || {}),
     },
   })

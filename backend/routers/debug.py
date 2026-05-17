@@ -1,7 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from typing import Dict, Any
 
-router = APIRouter(prefix="/debug", tags=["Debug"])
+from security import require_admin
+
+router = APIRouter(prefix="/debug", tags=["Debug"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/reads")

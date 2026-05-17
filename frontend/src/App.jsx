@@ -13,6 +13,12 @@ import AdminReadsPage from './pages/admin/AdminReadsPage'
 import AdminEventResultsPage from './pages/admin/AdminEventResultsPage'
 import AdminEventResultsPrintPage from './pages/admin/AdminEventResultsPrintPage'
 import AdminEventSetupPage from './pages/admin/AdminEventSetupPage'
+import AdminLoginPage from './pages/admin/AdminLoginPage'
+import RequireAdmin from './components/admin/RequireAdmin'
+
+function adminPage(element) {
+  return <RequireAdmin>{element}</RequireAdmin>
+}
 
 export default function App() {
   return (
@@ -23,14 +29,15 @@ export default function App() {
       <Route path="/evento/:id/inscripcion" element={<RegistrationPage />} />
       <Route path="/inscripcion/:registrationId/pago" element={<PaymentPage />} />
       <Route path="/corredor/:id" element={<RunnerDetailPage />} />
-      <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="/admin/eventos" element={<AdminEventsPage />} />
-      <Route path="/admin/eventos/:id/inscritos" element={<AdminRegistrationsPage />}/>
-      <Route path="/admin/eventos/:id/configuracion" element={<AdminEventSetupPage />}/>
-      <Route path="/admin/tags" element={<AdminTagsPage />} />
-      <Route path="/admin/lecturas" element={<AdminReadsPage />} />
-      <Route path="/admin/eventos/:id/resultados" element={<AdminEventResultsPage />}/>
-      <Route path="/admin/eventos/:id/resultados/print" element={<AdminEventResultsPrintPage />}/>
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin" element={adminPage(<AdminDashboard />)} />
+      <Route path="/admin/eventos" element={adminPage(<AdminEventsPage />)} />
+      <Route path="/admin/eventos/:id/inscritos" element={adminPage(<AdminRegistrationsPage />)}/>
+      <Route path="/admin/eventos/:id/configuracion" element={adminPage(<AdminEventSetupPage />)}/>
+      <Route path="/admin/tags" element={adminPage(<AdminTagsPage />)} />
+      <Route path="/admin/lecturas" element={adminPage(<AdminReadsPage />)} />
+      <Route path="/admin/eventos/:id/resultados" element={adminPage(<AdminEventResultsPage />)}/>
+      <Route path="/admin/eventos/:id/resultados/print" element={adminPage(<AdminEventResultsPrintPage />)}/>
     </Routes>
   )
 }

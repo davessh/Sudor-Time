@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Event, Checkpoint, Tag, RegistrationTag, Registration, RawRead
 from schemas.read import RawReadCreate, RawReadResponse, RawReadDetailResponse
+from security import require_admin
 
-router = APIRouter(prefix="/reads", tags=["Reads"])
+router = APIRouter(prefix="/reads", tags=["Reads"], dependencies=[Depends(require_admin)])
 
 
 @router.post("", response_model=RawReadResponse)

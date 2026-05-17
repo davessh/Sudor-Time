@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Event, EventModality, Category
 from schemas.category import CategoryCreate, CategoryResponse
+from security import require_admin
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
-@router.post("", response_model=CategoryResponse)
+@router.post("", response_model=CategoryResponse, dependencies=[Depends(require_admin)])
 def crear_categoria(data: CategoryCreate, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == data.event_id).first()
     if not evento:
@@ -64,7 +65,7 @@ def obtener_categoria(category_id: int, db: Session = Depends(get_db)):
     return categoria
 
 
-@router.put("/{category_id}", response_model=CategoryResponse)
+@router.put("/{category_id}", response_model=CategoryResponse, dependencies=[Depends(require_admin)])
 def actualizar_categoria(category_id: int, data: CategoryCreate, db: Session = Depends(get_db)):
     categoria = db.query(Category).filter(Category.id == category_id).first()
     if not categoria:
@@ -99,7 +100,7 @@ def actualizar_categoria(category_id: int, data: CategoryCreate, db: Session = D
     return categoria
 
 
-@router.delete("/{category_id}")
+@router.delete("/{category_id}", dependencies=[Depends(require_admin)])
 def eliminar_categoria(category_id: int, db: Session = Depends(get_db)):
     categoria = db.query(Category).filter(Category.id == category_id).first()
     if not categoria:

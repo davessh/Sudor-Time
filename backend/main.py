@@ -1,10 +1,10 @@
 import os
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import UPLOADS_DIR
 from database import Base, engine
 from routers.events import router as events_router
 from routers.participants import router as participants_router
@@ -42,7 +42,6 @@ def get_cors_origins():
 Base.metadata.create_all(bind=engine)
 ensure_registration_payment_columns(engine)
 
-UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="SudorTime API")

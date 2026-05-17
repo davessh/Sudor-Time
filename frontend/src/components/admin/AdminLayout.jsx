@@ -1,6 +1,12 @@
 import AdminSidebar from './AdminSidebar'
+import { clearAdminToken } from '../../auth/adminAuth'
 
 export default function AdminLayout({ title, subtitle, children, actions }) {
+  function logout() {
+    clearAdminToken()
+    window.location.href = '/admin/login'
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 lg:flex">
       <AdminSidebar />
@@ -16,7 +22,12 @@ export default function AdminLayout({ title, subtitle, children, actions }) {
               {subtitle && <p className="mt-2 text-slate-500">{subtitle}</p>}
             </div>
 
-            {actions && <div className="flex flex-wrap gap-3">{actions}</div>}
+            <div className="flex flex-wrap gap-3">
+              {actions}
+              <button type="button" onClick={logout} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold hover:bg-slate-100">
+                Salir
+              </button>
+            </div>
           </div>
         </header>
 

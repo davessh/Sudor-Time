@@ -2,18 +2,33 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RegistrationCreate(BaseModel):
-    event_id: int
-    participant_id: int
-    modality_id: int
-    product_id: Optional[int] = None
-    category_id: Optional[int] = None
-    numero_competidor: Optional[str] = None
-    tag_id: Optional[int] = None
-    talla_playera: Optional[str] = None
+    event_id: int = Field(ge=1)
+    participant_id: int = Field(ge=1)
+    modality_id: int = Field(ge=1)
+    product_id: Optional[int] = Field(default=None, ge=1)
+    category_id: Optional[int] = Field(default=None, ge=1)
+    numero_competidor: Optional[str] = Field(default=None, max_length=20)
+    tag_id: Optional[int] = Field(default=None, ge=1)
+    talla_playera: Optional[str] = Field(default=None, max_length=20)
+
+    @field_validator("numero_competidor", "talla_playera", mode="before")
+    @classmethod
+    def clean_optional_text(cls, value):
+        if value is None:
+            return None
+        cleaned = " ".join(str(value).strip().split())
+        return cleaned or None
+
+    @field_validator("numero_competidor")
+    @classmethod
+    def validate_competitor_number(cls, value):
+        if value and not value.replace("-", "").replace("_", "").isalnum():
+            raise ValueError("Número de competidor no válido")
+        return value
 
 
 class RegistrationStatusUpdate(BaseModel):

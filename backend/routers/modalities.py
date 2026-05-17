@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Event, EventModality
 from schemas.modality import EventModalityCreate, EventModalityResponse
+from security import require_admin
 
 router = APIRouter(prefix="/modalities", tags=["Modalities"])
 
 
-@router.post("", response_model=EventModalityResponse)
+@router.post("", response_model=EventModalityResponse, dependencies=[Depends(require_admin)])
 def crear_modalidad(data: EventModalityCreate, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == data.event_id).first()
     if not evento:
@@ -49,7 +50,7 @@ def obtener_modalidad(modality_id: int, db: Session = Depends(get_db)):
     return modalidad
 
 
-@router.put("/{modality_id}", response_model=EventModalityResponse)
+@router.put("/{modality_id}", response_model=EventModalityResponse, dependencies=[Depends(require_admin)])
 def actualizar_modalidad(modality_id: int, data: EventModalityCreate, db: Session = Depends(get_db)):
     modalidad = db.query(EventModality).filter(EventModality.id == modality_id).first()
     if not modalidad:
@@ -76,7 +77,7 @@ def actualizar_modalidad(modality_id: int, data: EventModalityCreate, db: Sessio
     return modalidad
 
 
-@router.delete("/{modality_id}")
+@router.delete("/{modality_id}", dependencies=[Depends(require_admin)])
 def eliminar_modalidad(modality_id: int, db: Session = Depends(get_db)):
     modalidad = db.query(EventModality).filter(EventModality.id == modality_id).first()
     if not modalidad:

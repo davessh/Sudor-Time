@@ -5,21 +5,34 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from config import EVENT_UPLOADS_DIR
 from dependencies import get_db
 from models import Event, EventModality, RegistrationProduct, Category, EventShirtSize, Registration
 from schemas.event import EventCreate, EventResponse, EventStatsResponse, CountItem
+from security import require_admin
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
-UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads" / "eventos"
+UPLOADS_DIR = EVENT_UPLOADS_DIR
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
 def _public_upload_path(filename: str) -> str:
     return f"/uploads/eventos/{filename}"
 
 
-@router.post("", response_model=EventResponse)
+def _looks_like_allowed_image(data: bytes, extension: str) -> bool:
+    if extension in {".jpg", ".jpeg"}:
+        return data.startswith(b"\xff\xd8\xff")
+    if extension == ".png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if extension == ".webp":
+        return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    return False
+
+
+@router.post("", response_model=EventResponse, dependencies=[Depends(require_admin)])
 def crear_evento(data: EventCreate, db: Session = Depends(get_db)):
     if data.slug:
         existente = db.query(Event).filter(Event.slug == data.slug).first()
@@ -128,7 +141,7 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/{event_id}/upload-convocatoria", response_model=EventResponse)
+@router.post("/{event_id}/upload-convocatoria", response_model=EventResponse, dependencies=[Depends(require_admin)])
 async def subir_convocatoria_evento(
     event_id: int,
     file: UploadFile = File(...),
@@ -150,8 +163,21 @@ async def subir_convocatoria_evento(
     filename = f"evento-{event_id}-{uuid4().hex}{extension}"
     destination = UPLOADS_DIR / filename
 
+    total_bytes = 0
+    first_chunk = b""
     with destination.open("wb") as buffer:
         while chunk := await file.read(1024 * 1024):
+            if not first_chunk:
+                first_chunk = chunk[:16]
+                if not _looks_like_allowed_image(first_chunk, extension):
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(status_code=400, detail="El archivo no parece ser una imagen válida")
+
+            total_bytes += len(chunk)
+            if total_bytes > MAX_UPLOAD_BYTES:
+                destination.unlink(missing_ok=True)
+                raise HTTPException(status_code=400, detail="La imagen no debe superar 5 MB")
+
             buffer.write(chunk)
 
     evento.imagen_convocatoria = _public_upload_path(filename)
@@ -160,7 +186,7 @@ async def subir_convocatoria_evento(
     return evento
 
 
-@router.get("/{event_id}/stats", response_model=EventStatsResponse)
+@router.get("/{event_id}/stats", response_model=EventStatsResponse, dependencies=[Depends(require_admin)])
 def obtener_estadisticas_evento(event_id: int, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == event_id).first()
     if not evento:
@@ -239,7 +265,7 @@ def obtener_evento(event_id: int, db: Session = Depends(get_db)):
     return evento
 
 
-@router.put("/{event_id}", response_model=EventResponse)
+@router.put("/{event_id}", response_model=EventResponse, dependencies=[Depends(require_admin)])
 def actualizar_evento(event_id: int, data: EventCreate, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == event_id).first()
     if not evento:
@@ -261,7 +287,7 @@ def actualizar_evento(event_id: int, data: EventCreate, db: Session = Depends(ge
     return evento
 
 
-@router.delete("/{event_id}")
+@router.delete("/{event_id}", dependencies=[Depends(require_admin)])
 def eliminar_evento(event_id: int, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == event_id).first()
     if not evento:

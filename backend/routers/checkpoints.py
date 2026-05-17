@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Event, Checkpoint
 from schemas.checkpoint import CheckpointCreate, CheckpointResponse
+from security import require_admin
 
-router = APIRouter(prefix="/checkpoints", tags=["Checkpoints"])
+router = APIRouter(prefix="/checkpoints", tags=["Checkpoints"], dependencies=[Depends(require_admin)])
 
 
 @router.post("", response_model=CheckpointResponse)

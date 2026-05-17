@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from dependencies import get_db
 from models import Event, Registration
+from security import require_admin
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["Dashboard"], dependencies=[Depends(require_admin)])
 
 
 @router.get("/stats")

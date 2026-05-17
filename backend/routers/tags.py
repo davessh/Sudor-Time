@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Tag
 from schemas.tag import TagCreate, TagResponse
+from security import require_admin
 
-router = APIRouter(prefix="/tags", tags=["Tags"])
+router = APIRouter(prefix="/tags", tags=["Tags"], dependencies=[Depends(require_admin)])
 
 
 @router.post("", response_model=TagResponse)

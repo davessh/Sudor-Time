@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Participant
 from schemas.participant import ParticipantCreate, ParticipantResponse
+from security import require_admin
 
 router = APIRouter(prefix="/participants", tags=["Participants"])
 
@@ -17,12 +18,12 @@ def crear_participante(data: ParticipantCreate, db: Session = Depends(get_db)):
     return nuevo
 
 
-@router.get("", response_model=list[ParticipantResponse])
+@router.get("", response_model=list[ParticipantResponse], dependencies=[Depends(require_admin)])
 def listar_participantes(db: Session = Depends(get_db)):
     return db.query(Participant).order_by(Participant.id.desc()).all()
 
 
-@router.get("/{participant_id}", response_model=ParticipantResponse)
+@router.get("/{participant_id}", response_model=ParticipantResponse, dependencies=[Depends(require_admin)])
 def obtener_participante(participant_id: int, db: Session = Depends(get_db)):
     participante = db.query(Participant).filter(Participant.id == participant_id).first()
     if not participante:
@@ -30,7 +31,7 @@ def obtener_participante(participant_id: int, db: Session = Depends(get_db)):
     return participante
 
 
-@router.put("/{participant_id}", response_model=ParticipantResponse)
+@router.put("/{participant_id}", response_model=ParticipantResponse, dependencies=[Depends(require_admin)])
 def actualizar_participante(participant_id: int, data: ParticipantCreate, db: Session = Depends(get_db)):
     participante = db.query(Participant).filter(Participant.id == participant_id).first()
     if not participante:
@@ -44,7 +45,7 @@ def actualizar_participante(participant_id: int, data: ParticipantCreate, db: Se
     return participante
 
 
-@router.delete("/{participant_id}")
+@router.delete("/{participant_id}", dependencies=[Depends(require_admin)])
 def eliminar_participante(participant_id: int, db: Session = Depends(get_db)):
     participante = db.query(Participant).filter(Participant.id == participant_id).first()
     if not participante:

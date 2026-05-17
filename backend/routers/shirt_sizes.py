@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Event, EventShirtSize
 from schemas.shirt_size import EventShirtSizeCreate, EventShirtSizeResponse
+from security import require_admin
 
 router = APIRouter(prefix="/shirt-sizes", tags=["Shirt Sizes"])
 
 
-@router.post("", response_model=EventShirtSizeResponse)
+@router.post("", response_model=EventShirtSizeResponse, dependencies=[Depends(require_admin)])
 def crear_talla(data: EventShirtSizeCreate, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == data.event_id).first()
     if not evento:
@@ -52,7 +53,7 @@ def obtener_talla(shirt_size_id: int, db: Session = Depends(get_db)):
     return talla
 
 
-@router.put("/{shirt_size_id}", response_model=EventShirtSizeResponse)
+@router.put("/{shirt_size_id}", response_model=EventShirtSizeResponse, dependencies=[Depends(require_admin)])
 def actualizar_talla(shirt_size_id: int, data: EventShirtSizeCreate, db: Session = Depends(get_db)):
     talla = db.query(EventShirtSize).filter(EventShirtSize.id == shirt_size_id).first()
     if not talla:
@@ -79,7 +80,7 @@ def actualizar_talla(shirt_size_id: int, data: EventShirtSizeCreate, db: Session
     return talla
 
 
-@router.delete("/{shirt_size_id}")
+@router.delete("/{shirt_size_id}", dependencies=[Depends(require_admin)])
 def eliminar_talla(shirt_size_id: int, db: Session = Depends(get_db)):
     talla = db.query(EventShirtSize).filter(EventShirtSize.id == shirt_size_id).first()
     if not talla:

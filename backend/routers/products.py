@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 from dependencies import get_db
 from models import Event, EventModality, RegistrationProduct
 from schemas.product import RegistrationProductCreate, RegistrationProductResponse
+from security import require_admin
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
-@router.post("", response_model=RegistrationProductResponse)
+@router.post("", response_model=RegistrationProductResponse, dependencies=[Depends(require_admin)])
 def crear_producto(data: RegistrationProductCreate, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == data.event_id).first()
     if not evento:
@@ -63,7 +64,7 @@ def obtener_producto(product_id: int, db: Session = Depends(get_db)):
     return producto
 
 
-@router.put("/{product_id}", response_model=RegistrationProductResponse)
+@router.put("/{product_id}", response_model=RegistrationProductResponse, dependencies=[Depends(require_admin)])
 def actualizar_producto(product_id: int, data: RegistrationProductCreate, db: Session = Depends(get_db)):
     producto = db.query(RegistrationProduct).filter(RegistrationProduct.id == product_id).first()
     if not producto:
@@ -97,7 +98,7 @@ def actualizar_producto(product_id: int, data: RegistrationProductCreate, db: Se
     return producto
 
 
-@router.delete("/{product_id}")
+@router.delete("/{product_id}", dependencies=[Depends(require_admin)])
 def eliminar_producto(product_id: int, db: Session = Depends(get_db)):
     producto = db.query(RegistrationProduct).filter(RegistrationProduct.id == product_id).first()
     if not producto:

@@ -23,6 +23,7 @@ from schemas.registration import (
     RegistrationDetailResponse,
     RegistrationStatusUpdate,
 )
+from security import require_admin
 from services.registration_helpers import calcular_edad, buscar_categoria_automatica
 
 router = APIRouter(prefix="/registrations", tags=["Registrations"])
@@ -289,7 +290,7 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
     return nuevo
 
 
-@router.get("", response_model=list[RegistrationResponse])
+@router.get("", response_model=list[RegistrationResponse], dependencies=[Depends(require_admin)])
 def listar_registros(
     event_id: Optional[int] = None,
     participant_id: Optional[int] = None,
@@ -322,7 +323,7 @@ def listar_registros(
     return query.order_by(Registration.id.desc()).all()
 
 
-@router.get("/by-event/{event_id}", response_model=list[RegistrationDetailResponse])
+@router.get("/by-event/{event_id}", response_model=list[RegistrationDetailResponse], dependencies=[Depends(require_admin)])
 def listar_registros_por_evento(
     event_id: int,
     talla_playera: Optional[str] = None,
@@ -350,7 +351,7 @@ def listar_registros_por_evento(
     return [crear_respuesta_detalle(registro) for registro in registros]
 
 
-@router.get("/{registration_id}", response_model=RegistrationDetailResponse)
+@router.get("/{registration_id}", response_model=RegistrationDetailResponse, dependencies=[Depends(require_admin)])
 def obtener_registro(registration_id: int, db: Session = Depends(get_db)):
     registro = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registro:
@@ -359,7 +360,7 @@ def obtener_registro(registration_id: int, db: Session = Depends(get_db)):
     return crear_respuesta_detalle(registro)
 
 
-@router.put("/{registration_id}", response_model=RegistrationResponse)
+@router.put("/{registration_id}", response_model=RegistrationResponse, dependencies=[Depends(require_admin)])
 def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Session = Depends(get_db)):
     registro = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registro:
@@ -439,7 +440,7 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
     return registro
 
 
-@router.patch("/{registration_id}/status", response_model=RegistrationResponse)
+@router.patch("/{registration_id}/status", response_model=RegistrationResponse, dependencies=[Depends(require_admin)])
 def actualizar_estado_registro(
     registration_id: int,
     data: RegistrationStatusUpdate,
@@ -501,7 +502,7 @@ def actualizar_estado_registro(
     return registro
 
 
-@router.delete("/{registration_id}")
+@router.delete("/{registration_id}", dependencies=[Depends(require_admin)])
 def eliminar_registro(registration_id: int, db: Session = Depends(get_db)):
     registro = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registro:
