@@ -83,7 +83,7 @@ export default function PaymentPage() {
     }
   }
 
-  const copy = useMemo(() => statusCopy[payment.status] || statusCopy.pending_payment, [payment.status])
+  const copy = useMemo(() => statusCopy[payment?.status] || statusCopy.pending_payment, [payment?.status])
 
   const returnMessage = useMemo(() => {
     if (returnStatus === 'success') return 'Mercado Pago recibió tu operación. La confirmación final puede tardar unos segundos.'
