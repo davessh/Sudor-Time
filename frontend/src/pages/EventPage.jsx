@@ -72,7 +72,7 @@ export default function EventPage() {
   }, [id])
 
   const precioDesde = useMemo(() => {
-    if (!evento.modalidades.length) return null
+    if (!evento?.modalidades?.length) return null
     const precios = evento.modalidades.map((modalidad) => Number(modalidad.precio || 0)).filter((precio) => precio > 0)
     return precios.length ? Math.min(...precios) : null
   }, [evento])

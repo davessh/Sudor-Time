@@ -92,16 +92,16 @@ export default function RegistrationPage() {
     loadEvent()
   }, [id])
 
-  const edad = useMemo(() => calcularEdad(formData.fechaNacimiento, setup.fecha), [formData.fechaNacimiento, setup.fecha])
+  const edad = useMemo(() => calcularEdad(formData.fechaNacimiento, setup?.fecha), [formData.fechaNacimiento, setup?.fecha])
 
   const modalidadSeleccionada = useMemo(() => {
     if (!setup || !formData.modality_id) return null
-    return setup.modalities.find((m) => String(m.id) === String(formData.modality_id)) || null
+    return (setup.modalities || []).find((m) => String(m.id) === String(formData.modality_id)) || null
   }, [setup, formData.modality_id])
 
   const categoriasDeModalidad = useMemo(() => {
     if (!setup || !formData.modality_id) return []
-    return setup.categories.filter((categoria) => String(categoria.modality_id) === String(formData.modality_id))
+    return (setup.categories || []).filter((categoria) => String(categoria.modality_id) === String(formData.modality_id))
   }, [setup, formData.modality_id])
 
   const productosDeModalidad = useMemo(() => {
@@ -115,7 +115,7 @@ export default function RegistrationPage() {
   }, [productosDeModalidad, formData.product_id])
 
   const totalEstimado = useMemo(() => {
-    return Number(modalidadSeleccionada.precio || 0) + Number(productoSeleccionado.precio || 0)
+    return Number(modalidadSeleccionada?.precio || 0) + Number(productoSeleccionado?.precio || 0)
   }, [modalidadSeleccionada, productoSeleccionado])
 
   const categoriaCalculada = useMemo(() => {
@@ -128,9 +128,9 @@ export default function RegistrationPage() {
       const stockDisponible = talla.stock === null || talla.stock === undefined || Number(talla.stock) > 0
       return talla.activa !== false && stockDisponible
     })
-  }, [setup.shirt_sizes])
+  }, [setup?.shirt_sizes])
 
-  const eventoRequierePlayera = Boolean(setup.has_shirt_sizes)
+  const eventoRequierePlayera = Boolean(setup?.has_shirt_sizes)
 
   const formularioValido = useMemo(() => {
     const requiereCategoria = categoriasDeModalidad.length > 0
@@ -253,7 +253,7 @@ export default function RegistrationPage() {
         <form onSubmit={handleSubmit} className="panel panel-pad space-y-8">
           <FormSection icon={ClipboardList} title="1. Modalidad">
             <div className="grid gap-3 sm:grid-cols-2">
-              {setup.modalities.map((modalidad) => {
+              {(setup.modalities || []).map((modalidad) => {
                 const activa = String(formData.modality_id) === String(modalidad.id)
                 return (
                   <label
