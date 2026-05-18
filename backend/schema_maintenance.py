@@ -22,6 +22,19 @@ REGISTRATION_COLUMNS = {
     "updated_at": "TIMESTAMP",
 }
 
+EVENT_COLUMNS = {
+    "imagen_playera": "TEXT",
+    "imagen_medalla": "TEXT",
+}
+
+EVENT_MODALITY_COLUMNS = {
+    "incluye_playera": "BOOLEAN DEFAULT FALSE NOT NULL",
+}
+
+REGISTRATION_PRODUCT_COLUMNS = {
+    "incluye_playera": "BOOLEAN DEFAULT FALSE NOT NULL",
+}
+
 
 def ensure_registration_payment_columns(engine):
     inspector = inspect(engine)
@@ -46,3 +59,28 @@ def ensure_registration_payment_columns(engine):
     with engine.begin() as connection:
         for name, definition in missing_columns:
             connection.execute(text(f"ALTER TABLE registrations ADD COLUMN {name} {definition}"))
+
+
+def ensure_event_merch_columns(engine):
+    table_columns = {
+        "events": EVENT_COLUMNS,
+        "event_modalities": EVENT_MODALITY_COLUMNS,
+        "registration_products": REGISTRATION_PRODUCT_COLUMNS,
+    }
+
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+
+    with engine.begin() as connection:
+        for table_name, columns in table_columns.items():
+            if table_name not in table_names:
+                continue
+
+            existing_columns = {
+                column["name"]
+                for column in inspector.get_columns(table_name)
+            }
+
+            for name, definition in columns.items():
+                if name not in existing_columns:
+                    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {definition}"))

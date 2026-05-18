@@ -20,6 +20,8 @@ class Event(Base):
     organizador = Column(String, nullable=True)
     inscripciones_abiertas = Column(Boolean, default=True)
     imagen_convocatoria = Column(Text, nullable=True)
+    imagen_playera = Column(Text, nullable=True)
+    imagen_medalla = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -42,6 +44,7 @@ class EventModality(Base):
     descripcion = Column(Text, nullable=True)
     precio = Column(Numeric(10, 2), nullable=False, default=0)
     distancia_km = Column(Numeric(6, 2), nullable=True)
+    incluye_playera = Column(Boolean, default=False, nullable=False)
 
     event = relationship("Event", back_populates="modalities")
     registrations = relationship("Registration", back_populates="modality")
@@ -62,6 +65,7 @@ class RegistrationProduct(Base):
 
     nombre = Column(String, nullable=False)
     precio = Column(Numeric(10, 2), nullable=False)
+    incluye_playera = Column(Boolean, default=False, nullable=False)
 
     event = relationship("Event", back_populates="products")
     modality = relationship("EventModality", back_populates="products")

@@ -84,6 +84,8 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
         "organizador": event.organizador,
         "inscripciones_abiertas": event.inscripciones_abiertas,
         "imagen_convocatoria": event.imagen_convocatoria,
+        "imagen_playera": event.imagen_playera,
+        "imagen_medalla": event.imagen_medalla,
         "has_shirt_sizes": len(active_shirt_sizes) > 0,
         "modalities": [
             {
@@ -93,6 +95,7 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
                 "descripcion": modality.descripcion,
                 "precio": float(modality.precio or 0),
                 "distancia_km": float(modality.distancia_km) if modality.distancia_km is not None else None,
+                "incluye_playera": modality.incluye_playera,
             }
             for modality in modalities
         ],
@@ -115,6 +118,7 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
                 "modality_id": product.modality_id,
                 "nombre": product.nombre,
                 "precio": float(product.precio or 0),
+                "incluye_playera": product.incluye_playera,
             }
             for product in products
         ],
@@ -141,12 +145,7 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/{event_id}/upload-convocatoria", response_model=EventResponse, dependencies=[Depends(require_admin)])
-async def subir_convocatoria_evento(
-    event_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-):
+async def _guardar_imagen_evento(event_id: int, file: UploadFile, db: Session, target_attr: str, prefix: str):
     evento = db.query(Event).filter(Event.id == event_id).first()
     if not evento:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -160,7 +159,7 @@ async def subir_convocatoria_evento(
         raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
 
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"evento-{event_id}-{uuid4().hex}{extension}"
+    filename = f"{prefix}-{event_id}-{uuid4().hex}{extension}"
     destination = UPLOADS_DIR / filename
 
     total_bytes = 0
@@ -180,10 +179,37 @@ async def subir_convocatoria_evento(
 
             buffer.write(chunk)
 
-    evento.imagen_convocatoria = _public_upload_path(filename)
+    setattr(evento, target_attr, _public_upload_path(filename))
     db.commit()
     db.refresh(evento)
     return evento
+
+
+@router.post("/{event_id}/upload-convocatoria", response_model=EventResponse, dependencies=[Depends(require_admin)])
+async def subir_convocatoria_evento(
+    event_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    return await _guardar_imagen_evento(event_id, file, db, "imagen_convocatoria", "evento")
+
+
+@router.post("/{event_id}/upload-playera", response_model=EventResponse, dependencies=[Depends(require_admin)])
+async def subir_playera_evento(
+    event_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    return await _guardar_imagen_evento(event_id, file, db, "imagen_playera", "playera")
+
+
+@router.post("/{event_id}/upload-medalla", response_model=EventResponse, dependencies=[Depends(require_admin)])
+async def subir_medalla_evento(
+    event_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    return await _guardar_imagen_evento(event_id, file, db, "imagen_medalla", "medalla")
 
 
 @router.get("/{event_id}/stats", response_model=EventStatsResponse, dependencies=[Depends(require_admin)])

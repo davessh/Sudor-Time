@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, ClipboardList, UserRound } from 'lucide-react'
+import { CheckCircle2, ClipboardList, UserRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { getEventSetup } from '../api/events'
@@ -61,8 +61,6 @@ const emptyForm = {
   ciudad: '',
   talla: '',
   equipo: '',
-  contactoEmergencia: '',
-  telefonoEmergencia: '',
 }
 
 export default function RegistrationPage() {
@@ -118,6 +116,8 @@ export default function RegistrationPage() {
     return Number(modalidadSeleccionada?.precio || 0) + Number(productoSeleccionado?.precio || 0)
   }, [modalidadSeleccionada, productoSeleccionado])
 
+  const requierePlayera = Boolean(modalidadSeleccionada?.incluye_playera || productoSeleccionado?.incluye_playera)
+
   const categoriaCalculada = useMemo(() => {
     if (!categoriasDeModalidad.length || !formData.fechaNacimiento || !formData.sexo) return null
     return categoriasDeModalidad.find((categoria) => categoriaCoincide(categoria, formData.sexo, edad)) || null
@@ -130,8 +130,6 @@ export default function RegistrationPage() {
     })
   }, [setup?.shirt_sizes])
 
-  const eventoRequierePlayera = Boolean(setup?.has_shirt_sizes)
-
   const formularioValido = useMemo(() => {
     const requiereCategoria = categoriasDeModalidad.length > 0
     return (
@@ -143,12 +141,10 @@ export default function RegistrationPage() {
       formData.telefono.trim() &&
       formData.correo.trim() &&
       formData.ciudad.trim() &&
-      (!eventoRequierePlayera || formData.talla) &&
-      formData.contactoEmergencia.trim() &&
-      formData.telefonoEmergencia.trim() &&
+      (!requierePlayera || formData.talla) &&
       (!requiereCategoria || categoriaCalculada)
     )
-  }, [eventoRequierePlayera, categoriasDeModalidad, categoriaCalculada, formData])
+  }, [requierePlayera, categoriasDeModalidad, categoriaCalculada, formData])
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -182,8 +178,8 @@ export default function RegistrationPage() {
         correo: formData.correo.trim(),
         ciudad: formData.ciudad.trim(),
         equipo: formData.equipo.trim() || null,
-        contacto_emergencia: formData.contactoEmergencia.trim(),
-        telefono_emergencia: formData.telefonoEmergencia.trim(),
+        contacto_emergencia: null,
+        telefono_emergencia: null,
       })
 
       const registro = await createRegistration({
@@ -192,7 +188,7 @@ export default function RegistrationPage() {
         modality_id: Number(formData.modality_id),
         product_id: formData.product_id ? Number(formData.product_id) : null,
         category_id: categoriaCalculada?.id || null,
-        talla_playera: formData.talla || null,
+        talla_playera: requierePlayera ? formData.talla || null : null,
       })
 
       setSuccess('Preinscripción recibida. Tu lugar queda pendiente hasta completar el pago correspondiente.')
@@ -269,6 +265,11 @@ export default function RegistrationPage() {
                         {modalidad.descripcion && (
                           <p className={`mt-1 text-sm leading-6 ${activa ? 'text-slate-200' : 'text-slate-500'}`}>{modalidad.descripcion}</p>
                         )}
+                        {modalidad.incluye_playera && (
+                          <p className={`mt-2 text-xs font-bold uppercase tracking-[0.14em] ${activa ? 'text-red-100' : 'text-red-700'}`}>
+                            Incluye playera
+                          </p>
+                        )}
                       </div>
                       <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-black ${activa ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-900'}`}>
                         {formatMoney(modalidad.precio)}
@@ -286,7 +287,9 @@ export default function RegistrationPage() {
                 <select name="product_id" value={formData.product_id} onChange={handleChange} className="input-control">
                   <option value="">Sin paquete adicional</option>
                   {productosDeModalidad.map((producto) => (
-                    <option key={producto.id} value={producto.id}>{producto.nombre} · {formatMoney(producto.precio)}</option>
+                    <option key={producto.id} value={producto.id}>
+                      {producto.nombre} · {formatMoney(producto.precio)}{producto.incluye_playera ? ' · incluye playera' : ''}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -326,7 +329,7 @@ export default function RegistrationPage() {
             </div>
           </FormSection>
 
-          {eventoRequierePlayera && (
+          {requierePlayera && (
             <FormSection title="3. Playera">
               {tallasDisponibles.length > 0 ? (
                 <Field label="Talla">
@@ -345,17 +348,6 @@ export default function RegistrationPage() {
             </FormSection>
           )}
 
-          <FormSection icon={CalendarDays} title="Contacto de emergencia">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombre del contacto">
-                <input name="contactoEmergencia" value={formData.contactoEmergencia} onChange={handleChange} required placeholder="Nombre completo" className="input-control" />
-              </Field>
-              <Field label="Teléfono de emergencia">
-                <input name="telefonoEmergencia" value={formData.telefonoEmergencia} onChange={handleChange} required placeholder="Teléfono" className="input-control" />
-              </Field>
-            </div>
-          </FormSection>
-
           {error && <p className="notice-error">{error}</p>}
           {success && <p className="notice-success">{success}</p>}
 
@@ -373,7 +365,7 @@ export default function RegistrationPage() {
               <SummaryLine label="Paquete" value={productoSeleccionado?.nombre || 'Sin paquete adicional'} />
               <SummaryLine label="Total" value={modalidadSeleccionada ? formatMoney(totalEstimado) : 'Pendiente'} strong />
               <SummaryLine label="Edad al evento" value={edad !== null ? `${edad} años` : 'Pendiente'} />
-              <SummaryLine label="Talla" value={formData.talla || 'Pendiente'} />
+              <SummaryLine label="Playera" value={requierePlayera ? (formData.talla || 'Pendiente') : 'No incluida'} />
             </div>
           </div>
 

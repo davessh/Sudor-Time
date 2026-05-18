@@ -39,3 +39,23 @@ export function uploadEventConvocatoria(eventId, file) {
     body: formData,
   })
 }
+
+export function uploadEventPlayera(eventId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest(`/events/${eventId}/upload-playera`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export function uploadEventMedalla(eventId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest(`/events/${eventId}/upload-medalla`, {
+    method: 'POST',
+    body: formData,
+  })
+}

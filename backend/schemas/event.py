@@ -20,6 +20,8 @@ class EventCreate(BaseModel):
     organizador: Optional[str] = None
     inscripciones_abiertas: bool = True
     imagen_convocatoria: Optional[str] = None
+    imagen_playera: Optional[str] = None
+    imagen_medalla: Optional[str] = None
 
 
 class EventResponse(BaseModel):
@@ -33,6 +35,8 @@ class EventResponse(BaseModel):
     organizador: Optional[str] = None
     inscripciones_abiertas: bool = True
     imagen_convocatoria: Optional[str] = None
+    imagen_playera: Optional[str] = None
+    imagen_medalla: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

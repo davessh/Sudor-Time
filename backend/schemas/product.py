@@ -9,6 +9,7 @@ class RegistrationProductCreate(BaseModel):
     modality_id: Optional[int] = None
     nombre: str
     precio: Decimal
+    incluye_playera: bool = False
 
 
 class RegistrationProductResponse(BaseModel):
@@ -17,5 +18,6 @@ class RegistrationProductResponse(BaseModel):
     modality_id: Optional[int]
     nombre: str
     precio: Decimal
+    incluye_playera: bool = False
 
     model_config = ConfigDict(from_attributes=True)

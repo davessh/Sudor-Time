@@ -44,6 +44,8 @@ function normalizeEventSetup(data) {
       eventData.imagenConvocatoria ||
       eventData.convocatoria_url ||
       '',
+    imagenPlayera: eventData.imagen_playera || '',
+    imagenMedalla: eventData.imagen_medalla || '',
     inscripcionesAbiertas: eventData.inscripciones_abiertas !== false,
   }
 }
@@ -152,6 +154,21 @@ export default function EventPage() {
               )}
             </section>
 
+            {(evento.imagenPlayera || evento.imagenMedalla) && (
+              <section className="panel panel-pad">
+                <p className="eyebrow">Kit del corredor</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight">Lo que recibes</h2>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  {evento.imagenPlayera && (
+                    <KitImage title="Playera" src={getApiAssetUrl(evento.imagenPlayera)} />
+                  )}
+                  {evento.imagenMedalla && (
+                    <KitImage title="Medalla" src={getApiAssetUrl(evento.imagenMedalla)} />
+                  )}
+                </div>
+              </section>
+            )}
+
             <section className="panel panel-pad">
               <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -229,6 +246,15 @@ function EventMeta({ icon: Icon, label, value }) {
           <p className="mt-1 font-semibold text-slate-900">{value}</p>
         </div>
       </div>
+    </div>
+  )
+}
+
+function KitImage({ title, src }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+      <img src={src} alt={title} className="aspect-[4/3] w-full object-cover" />
+      <p className="px-4 py-3 text-sm font-bold text-slate-800">{title}</p>
     </div>
   )
 }

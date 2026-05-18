@@ -194,6 +194,10 @@ def resolver_talla_playera(
     return talla
 
 
+def requiere_talla_playera(modalidad: EventModality, producto: Optional[RegistrationProduct]) -> bool:
+    return bool(modalidad.incluye_playera or (producto and producto.incluye_playera))
+
+
 def reservar_talla(db: Session, event_id: int, talla_playera: Optional[str]):
     if not talla_playera:
         return
@@ -266,7 +270,7 @@ def validar_y_resolver_registro(
                     detail="No existe una categoría configurada para la edad/sexo del participante en esa modalidad",
                 )
 
-    talla = resolver_talla_playera(data, db, registro_actual)
+    talla = resolver_talla_playera(data, db, registro_actual) if requiere_talla_playera(modalidad, producto) else None
 
     return evento, participante, modalidad, producto, categoria, talla
 
@@ -280,7 +284,7 @@ def calcular_monto_inscripcion(modalidad: EventModality, producto: Optional[Regi
 
 @router.post("", response_model=RegistrationResponse)
 def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
-    evento, _, modalidad, producto, categoria, _ = validar_y_resolver_registro(data, db)
+    evento, _, modalidad, producto, categoria, talla = validar_y_resolver_registro(data, db)
 
     if not evento.inscripciones_abiertas:
         raise HTTPException(status_code=400, detail="Las inscripciones de este evento están cerradas")
@@ -329,7 +333,7 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
         product_id=data.product_id,
         category_id=categoria.id if categoria else data.category_id,
         numero_competidor=data.numero_competidor,
-        talla_playera=data.talla_playera,
+        talla_playera=talla.talla if talla else None,
         status="pending_payment",
         payment_status="unpaid",
         amount=calcular_monto_inscripcion(modalidad, producto),
@@ -339,7 +343,7 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
 
     db.add(nuevo)
     db.flush()
-    reservar_talla(db, data.event_id, data.talla_playera)
+    reservar_talla(db, data.event_id, talla.talla if talla else None)
 
     if tag_obj is not None:
         db.add(RegistrationTag(registration_id=nuevo.id, tag_id=tag_obj.id, activo=True))
@@ -434,7 +438,8 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
     old_event_id = registro.event_id
     old_talla = registro.talla_playera
 
-    _, _, _, _, categoria, _ = validar_y_resolver_registro(data, db, registro_actual=registro)
+    _, _, _, _, categoria, talla = validar_y_resolver_registro(data, db, registro_actual=registro)
+    nueva_talla = talla.talla if talla else None
 
     existente = db.query(Registration).filter(
         Registration.event_id == data.event_id,
@@ -476,10 +481,10 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
         if asignado:
             raise HTTPException(status_code=400, detail="Ese tag ya está asignado activamente en este evento")
 
-    talla_cambio = old_event_id != data.event_id or old_talla != data.talla_playera
+    talla_cambio = old_event_id != data.event_id or old_talla != nueva_talla
     if talla_cambio:
         liberar_talla(db, old_event_id, old_talla)
-        reservar_talla(db, data.event_id, data.talla_playera)
+        reservar_talla(db, data.event_id, nueva_talla)
 
     registro.event_id = data.event_id
     registro.participant_id = data.participant_id
@@ -487,7 +492,7 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
     registro.product_id = data.product_id
     registro.category_id = categoria.id if categoria else data.category_id
     registro.numero_competidor = data.numero_competidor
-    registro.talla_playera = data.talla_playera
+    registro.talla_playera = nueva_talla
 
     asignaciones_activas = db.query(RegistrationTag).filter(
         RegistrationTag.registration_id == registro.id,
@@ -523,19 +528,20 @@ def actualizar_estado_registro(
         liberar_talla(db, registro.event_id, registro.talla_playera)
 
     if previous_status in CLOSED_REGISTRATION_STATUSES and new_status in ACTIVE_STOCK_STATUSES:
-        resolver_talla_playera(
-            RegistrationCreate(
-                event_id=registro.event_id,
-                participant_id=registro.participant_id,
-                modality_id=registro.modality_id,
-                product_id=registro.product_id,
-                category_id=registro.category_id,
-                numero_competidor=registro.numero_competidor,
-                talla_playera=registro.talla_playera,
-            ),
-            db,
-            registro_actual=registro,
-        )
+        if requiere_talla_playera(registro.modality, registro.product):
+            resolver_talla_playera(
+                RegistrationCreate(
+                    event_id=registro.event_id,
+                    participant_id=registro.participant_id,
+                    modality_id=registro.modality_id,
+                    product_id=registro.product_id,
+                    category_id=registro.category_id,
+                    numero_competidor=registro.numero_competidor,
+                    talla_playera=registro.talla_playera,
+                ),
+                db,
+                registro_actual=registro,
+            )
         reservar_talla(db, registro.event_id, registro.talla_playera)
 
     registro.status = new_status

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getApiAssetUrl } from '../../api/client'
-import { getEventSetup, updateEvent, uploadEventConvocatoria } from '../../api/events'
+import { getEventSetup, updateEvent, uploadEventConvocatoria, uploadEventMedalla, uploadEventPlayera } from '../../api/events'
 import { createModality, deleteModality } from '../../api/modalities'
 import { createCategory, deleteCategory } from '../../api/categories'
 import { createProduct, deleteProduct } from '../../api/products'
@@ -18,6 +18,8 @@ const initialEventForm = {
   organizador: '',
   inscripciones_abiertas: true,
   imagen_convocatoria: '',
+  imagen_playera: '',
+  imagen_medalla: '',
 }
 
 const initialModalityForm = {
@@ -25,6 +27,7 @@ const initialModalityForm = {
   descripcion: '',
   precio: '0',
   distancia_km: '',
+  incluye_playera: false,
 }
 
 const initialCategoryForm = {
@@ -39,6 +42,7 @@ const initialProductForm = {
   modality_id: '',
   nombre: '',
   precio: '0',
+  incluye_playera: false,
 }
 
 const initialShirtForm = {
@@ -81,6 +85,28 @@ function inputClass() {
   return 'w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900'
 }
 
+function AssetUpload({ title, imageUrl, emptyText, file, onFileChange, onSubmit, saving, buttonText }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 p-4">
+      <h3 className="font-bold text-slate-900">{title}</h3>
+      {imageUrl ? (
+        <img src={getApiAssetUrl(imageUrl)} alt={title} className="mt-3 h-44 w-full rounded-2xl border border-slate-200 object-cover" />
+      ) : (
+        <div className="mt-3 flex h-44 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-500">
+          {emptyText}
+        </div>
+      )}
+      <form onSubmit={onSubmit} className="mt-4 space-y-3">
+        <input type="file" accept="image/*" onChange={(e) => onFileChange(e.target.files?.[0] || null)} className={inputClass()} />
+        {file && <p className="text-xs font-semibold text-slate-500">{file.name}</p>}
+        <button disabled={saving} className="w-full rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
+          {saving ? 'Subiendo...' : buttonText}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 export default function AdminEventSetupPage() {
   const { id } = useParams()
 
@@ -91,6 +117,8 @@ export default function AdminEventSetupPage() {
   const [productForm, setProductForm] = useState(initialProductForm)
   const [shirtForm, setShirtForm] = useState(initialShirtForm)
   const [imageFile, setImageFile] = useState(null)
+  const [shirtImageFile, setShirtImageFile] = useState(null)
+  const [medalImageFile, setMedalImageFile] = useState(null)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
@@ -118,6 +146,8 @@ export default function AdminEventSetupPage() {
         organizador: data.organizador || '',
         inscripciones_abiertas: Boolean(data.inscripciones_abiertas),
         imagen_convocatoria: data.imagen_convocatoria || '',
+        imagen_playera: data.imagen_playera || '',
+        imagen_medalla: data.imagen_medalla || '',
       })
     } catch (err) {
       setError(err.message || 'No se pudo cargar la configuración del evento')
@@ -175,6 +205,8 @@ export default function AdminEventSetupPage() {
         organizador: eventForm.organizador.trim() || null,
         inscripciones_abiertas: eventForm.inscripciones_abiertas,
         imagen_convocatoria: eventForm.imagen_convocatoria.trim() || null,
+        imagen_playera: eventForm.imagen_playera.trim() || null,
+        imagen_medalla: eventForm.imagen_medalla.trim() || null,
       })
       await loadSetup()
       showSuccess('Datos generales actualizados.')
@@ -205,6 +237,46 @@ export default function AdminEventSetupPage() {
     }
   }
 
+  async function uploadShirtImage(e) {
+    e.preventDefault()
+    if (!shirtImageFile) {
+      setError('Selecciona una imagen de playera primero.')
+      return
+    }
+
+    try {
+      setSaving('shirt-image')
+      await uploadEventPlayera(id, shirtImageFile)
+      setShirtImageFile(null)
+      await loadSetup()
+      showSuccess('Imagen de playera subida correctamente.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen de playera')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadMedalImage(e) {
+    e.preventDefault()
+    if (!medalImageFile) {
+      setError('Selecciona una imagen de medalla primero.')
+      return
+    }
+
+    try {
+      setSaving('medal-image')
+      await uploadEventMedalla(id, medalImageFile)
+      setMedalImageFile(null)
+      await loadSetup()
+      showSuccess('Imagen de medalla subida correctamente.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen de medalla')
+    } finally {
+      setSaving('')
+    }
+  }
+
   async function addModality(e) {
     e.preventDefault()
     try {
@@ -215,6 +287,7 @@ export default function AdminEventSetupPage() {
         descripcion: modalityForm.descripcion.trim() || null,
         precio: String(Number(modalityForm.precio || 0)),
         distancia_km: modalityForm.distancia_km ? String(Number(modalityForm.distancia_km)) : null,
+        incluye_playera: modalityForm.incluye_playera,
       })
       setModalityForm(initialModalityForm)
       await loadSetup()
@@ -257,6 +330,7 @@ export default function AdminEventSetupPage() {
         modality_id: productForm.modality_id ? Number(productForm.modality_id) : null,
         nombre: productForm.nombre.trim(),
         precio: String(Number(productForm.precio || 0)),
+        incluye_playera: productForm.incluye_playera,
       })
       setProductForm(initialProductForm)
       await loadSetup()
@@ -377,6 +451,16 @@ export default function AdminEventSetupPage() {
                   <input name="imagen_convocatoria" value={eventForm.imagen_convocatoria} onChange={handleEventChange} placeholder="/uploads/eventos/imagen.png o https://..." className={inputClass()} />
                 </Field>
               </div>
+              <div className="md:col-span-2">
+                <Field label="URL de imagen de playera">
+                  <input name="imagen_playera" value={eventForm.imagen_playera} onChange={handleEventChange} placeholder="/uploads/eventos/playera.png o https://..." className={inputClass()} />
+                </Field>
+              </div>
+              <div className="md:col-span-2">
+                <Field label="URL de imagen de medalla">
+                  <input name="imagen_medalla" value={eventForm.imagen_medalla} onChange={handleEventChange} placeholder="/uploads/eventos/medalla.png o https://..." className={inputClass()} />
+                </Field>
+              </div>
               <label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 md:col-span-2">
                 <input type="checkbox" name="inscripciones_abiertas" checked={eventForm.inscripciones_abiertas} onChange={handleEventChange} />
                 Inscripciones abiertas
@@ -403,6 +487,10 @@ export default function AdminEventSetupPage() {
               <Field label="Descripción">
                 <input name="descripcion" value={modalityForm.descripcion} onChange={handleFormChange(setModalityForm)} className={inputClass()} />
               </Field>
+              <label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 md:col-span-2">
+                <input type="checkbox" name="incluye_playera" checked={modalityForm.incluye_playera} onChange={handleFormChange(setModalityForm)} />
+                Esta modalidad incluye playera y debe pedir talla
+              </label>
               <div className="md:col-span-2">
                 <button disabled={saving === 'modality'} className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
                   {saving === 'modality' ? 'Creando...' : 'Crear modalidad'}
@@ -415,7 +503,7 @@ export default function AdminEventSetupPage() {
                 <div key={item.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="font-bold">{item.nombre}</p>
-                    <p className="text-sm text-slate-500">{money(item.precio)} · {item.distancia_km ? `${item.distancia_km} km` : 'Sin distancia'} · {item.descripcion || 'Sin descripción'}</p>
+                    <p className="text-sm text-slate-500">{money(item.precio)} · {item.distancia_km ? `${item.distancia_km} km` : 'Sin distancia'} · {item.descripcion || 'Sin descripción'} · {item.incluye_playera ? 'Incluye playera' : 'Sin playera'}</p>
                   </div>
                   <button type="button" onClick={() => removeItem('modality', item.id)} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
                     Eliminar
@@ -494,6 +582,31 @@ export default function AdminEventSetupPage() {
             </form>
           </SectionCard>
 
+          <SectionCard title="Kit del evento" subtitle="Sube fotos de la playera o medalla para enriquecer la página pública.">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <AssetUpload
+                title="Playera"
+                imageUrl={eventForm.imagen_playera}
+                emptyText="Sin imagen de playera."
+                file={shirtImageFile}
+                onFileChange={setShirtImageFile}
+                onSubmit={uploadShirtImage}
+                saving={saving === 'shirt-image'}
+                buttonText="Subir playera"
+              />
+              <AssetUpload
+                title="Medalla"
+                imageUrl={eventForm.imagen_medalla}
+                emptyText="Sin imagen de medalla."
+                file={medalImageFile}
+                onFileChange={setMedalImageFile}
+                onSubmit={uploadMedalImage}
+                saving={saving === 'medal-image'}
+                buttonText="Subir medalla"
+              />
+            </div>
+          </SectionCard>
+
           <SectionCard title="Tallas de playera" subtitle="El registro público solo mostrará tallas activas con stock disponible.">
             <form onSubmit={addShirtSize} className="grid gap-4 sm:grid-cols-2">
               <Field label="Talla">
@@ -540,6 +653,10 @@ export default function AdminEventSetupPage() {
               <Field label="Precio">
                 <input type="number" min="0" step="0.01" name="precio" value={productForm.precio} onChange={handleFormChange(setProductForm)} required className={inputClass()} />
               </Field>
+              <label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                <input type="checkbox" name="incluye_playera" checked={productForm.incluye_playera} onChange={handleFormChange(setProductForm)} />
+                Este paquete incluye playera y debe pedir talla
+              </label>
               <button disabled={saving === 'product'} className="w-full rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
                 {saving === 'product' ? 'Creando...' : 'Crear paquete'}
               </button>
@@ -552,7 +669,7 @@ export default function AdminEventSetupPage() {
                   <div key={item.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-bold">{item.nombre}</p>
-                      <p className="text-sm text-slate-500">{money(item.precio)} · {modality?.nombre || 'Todo el evento'}</p>
+                      <p className="text-sm text-slate-500">{money(item.precio)} · {modality?.nombre || 'Todo el evento'} · {item.incluye_playera ? 'Incluye playera' : 'Sin playera'}</p>
                     </div>
                     <button type="button" onClick={() => removeItem('product', item.id)} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
                       Eliminar
