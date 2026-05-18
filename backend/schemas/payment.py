@@ -33,3 +33,5 @@ class RegistrationPaymentStatusResponse(BaseModel):
     payment_expires_at: Optional[datetime]
     paid_at: Optional[datetime]
     confirmed_at: Optional[datetime]
+    expires_at: Optional[datetime]
+    expired_at: Optional[datetime]

@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import os
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -30,6 +31,61 @@ router = APIRouter(prefix="/registrations", tags=["Registrations"])
 
 ACTIVE_STOCK_STATUSES = {"pending_payment", "confirmed"}
 CLOSED_REGISTRATION_STATUSES = {"cancelled", "expired"}
+DEFAULT_REGISTRATION_EXPIRATION_HOURS = 48
+
+
+def get_registration_expiration_hours() -> int:
+    try:
+        hours = int(os.getenv("REGISTRATION_EXPIRATION_HOURS", DEFAULT_REGISTRATION_EXPIRATION_HOURS))
+    except ValueError:
+        hours = DEFAULT_REGISTRATION_EXPIRATION_HOURS
+
+    return max(hours, 1)
+
+
+def get_registration_expiration_date() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(hours=get_registration_expiration_hours())
+
+
+def expire_registration_if_needed(db: Session, registro: Registration, now: Optional[datetime] = None) -> bool:
+    if registro.status != "pending_payment" or not registro.expires_at:
+        return False
+
+    current_time = now or datetime.now(timezone.utc)
+    expires_at = registro.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at > current_time:
+        return False
+
+    liberar_talla(db, registro.event_id, registro.talla_playera)
+    registro.status = "expired"
+    registro.payment_status = "unpaid"
+    registro.expired_at = current_time
+    return True
+
+
+def expire_pending_registrations(db: Session, event_id: Optional[int] = None) -> int:
+    now = datetime.now(timezone.utc)
+    query = db.query(Registration).filter(
+        Registration.status == "pending_payment",
+        Registration.expires_at.isnot(None),
+        Registration.expires_at <= now,
+    )
+
+    if event_id is not None:
+        query = query.filter(Registration.event_id == event_id)
+
+    expired_count = 0
+    for registro in query.all():
+        if expire_registration_if_needed(db, registro, now):
+            expired_count += 1
+
+    if expired_count:
+        db.commit()
+
+    return expired_count
 
 
 def obtener_tag_activo_de_registro(registro: Registration) -> Optional[RegistrationTag]:
@@ -83,6 +139,8 @@ def crear_respuesta_detalle(registro: Registration) -> RegistrationDetailRespons
         paid_at=registro.paid_at,
         confirmed_at=registro.confirmed_at,
         cancelled_at=registro.cancelled_at,
+        expires_at=registro.expires_at,
+        expired_at=registro.expired_at,
         tag_id=tag_activo.tag.id if tag_activo else None,
         tag_codigo=tag_activo.tag.codigo if tag_activo else None,
     )
@@ -276,6 +334,7 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
         payment_status="unpaid",
         amount=calcular_monto_inscripcion(modalidad, producto),
         currency="MXN",
+        expires_at=get_registration_expiration_date(),
     )
 
     db.add(nuevo)
@@ -300,6 +359,7 @@ def listar_registros(
     payment_status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    expire_pending_registrations(db, event_id=event_id)
     query = db.query(Registration)
 
     if event_id is not None:
@@ -331,6 +391,7 @@ def listar_registros_por_evento(
     payment_status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    expire_pending_registrations(db, event_id=event_id)
     evento = db.query(Event).filter(Event.id == event_id).first()
     if not evento:
         raise HTTPException(status_code=404, detail="Evento no encontrado")
@@ -356,6 +417,10 @@ def obtener_registro(registration_id: int, db: Session = Depends(get_db)):
     registro = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registro:
         raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+
+    if expire_registration_if_needed(db, registro):
+        db.commit()
+        db.refresh(registro)
 
     return crear_respuesta_detalle(registro)
 
@@ -489,13 +554,17 @@ def actualizar_estado_registro(
 
     if new_status == "confirmed":
         registro.confirmed_at = now
+        registro.expired_at = None
         if registro.payment_status == "unpaid":
             registro.payment_status = data.payment_status or "manual"
         if not registro.paid_at and registro.payment_status in {"paid", "manual"}:
             registro.paid_at = now
 
     if new_status in CLOSED_REGISTRATION_STATUSES:
-        registro.cancelled_at = now
+        if new_status == "expired":
+            registro.expired_at = now
+        else:
+            registro.cancelled_at = now
 
     db.commit()
     db.refresh(registro)
@@ -514,3 +583,9 @@ def eliminar_registro(registration_id: int, db: Session = Depends(get_db)):
     db.delete(registro)
     db.commit()
     return {"message": "Inscripción eliminada correctamente"}
+
+
+@router.post("/expire-pending", dependencies=[Depends(require_admin)])
+def expirar_registros_pendientes(event_id: Optional[int] = None, db: Session = Depends(get_db)):
+    expired_count = expire_pending_registrations(db, event_id=event_id)
+    return {"expired": expired_count}

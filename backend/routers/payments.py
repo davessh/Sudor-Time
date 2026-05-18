@@ -17,6 +17,7 @@ from schemas.payment import (
     MercadoPagoPreferenceResponse,
     RegistrationPaymentStatusResponse,
 )
+from routers.registrations import expire_registration_if_needed
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -87,6 +88,8 @@ def _registration_payment_status(registration: Registration) -> RegistrationPaym
         payment_expires_at=registration.payment_expires_at,
         paid_at=registration.paid_at,
         confirmed_at=registration.confirmed_at,
+        expires_at=registration.expires_at,
+        expired_at=registration.expired_at,
     )
 
 
@@ -263,6 +266,10 @@ async def crear_preferencia_mercadopago(
     if not registration:
         raise HTTPException(status_code=404, detail="Inscripción no encontrada")
 
+    if expire_registration_if_needed(db, registration):
+        db.commit()
+        db.refresh(registration)
+
     if registration.status not in {"pending_payment", "confirmed"}:
         raise HTTPException(status_code=400, detail="La inscripción no está disponible para pago")
 
@@ -350,5 +357,9 @@ def obtener_estado_pago_registro(registration_id: int, db: Session = Depends(get
     registration = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registration:
         raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+
+    if expire_registration_if_needed(db, registration):
+        db.commit()
+        db.refresh(registration)
 
     return _registration_payment_status(registration)

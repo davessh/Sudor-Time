@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getEventById, getEventStats } from '../../api/events'
-import { getEventRegistrations, updateRegistration, updateRegistrationStatus } from '../../api/registrations'
+import { expirePendingRegistrations, getEventRegistrations, updateRegistration, updateRegistrationStatus } from '../../api/registrations'
 import { getTags } from '../../api/tags'
 
 export default function AdminRegistrationsPage() {
@@ -16,6 +16,7 @@ export default function AdminRegistrationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savingId, setSavingId] = useState(null)
+  const [expiring, setExpiring] = useState(false)
 
   const [filtroTalla, setFiltroTalla] = useState('')
   const [filtroModalidad, setFiltroModalidad] = useState('')
@@ -149,6 +150,29 @@ export default function AdminRegistrationsPage() {
     }
   }
 
+  async function expirarPendientes() {
+    try {
+      setExpiring(true)
+      setError('')
+      await expirePendingRegistrations(id)
+      await loadData()
+    } catch (err) {
+      setError(err.message || 'No se pudieron expirar las preinscripciones vencidas')
+    } finally {
+      setExpiring(false)
+    }
+  }
+
+  function formatDateTime(value) {
+    if (!value) return 'Sin límite'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleString('es-MX', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    })
+  }
+
   function StatBox({ title, items }) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -197,7 +221,15 @@ export default function AdminRegistrationsPage() {
   }
 
   return (
-    <AdminLayout title="Inscritos por evento" subtitle={`${evento.nombre} · ${evento.fecha} · ${evento.lugar}`}>
+    <AdminLayout
+      title="Inscritos por evento"
+      subtitle={`${evento.nombre} · ${evento.fecha} · ${evento.lugar}`}
+      actions={
+        <button type="button" onClick={expirarPendientes} disabled={expiring} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold hover:bg-slate-100 disabled:opacity-60">
+          {expiring ? 'Expirando...' : 'Expirar vencidas'}
+        </button>
+      }
+    >
       {error && <p className="mb-6 rounded-2xl bg-red-50 px-4 py-3 font-semibold text-red-700">Error: {error}</p>}
 
       <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -262,6 +294,11 @@ export default function AdminRegistrationsPage() {
                     <p className="mt-1 text-sm text-slate-500">
                       {registro.telefono || 'Sin teléfono'} · {registro.correo || 'Sin correo'}
                     </p>
+                    {registro.status === 'pending_payment' && (
+                      <p className="mt-1 text-xs font-semibold text-amber-700">
+                        Vence: {formatDateTime(registro.expires_at)}
+                      </p>
+                    )}
                   </div>
 
                   <div>

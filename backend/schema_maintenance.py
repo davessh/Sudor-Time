@@ -16,6 +16,8 @@ REGISTRATION_COLUMNS = {
     "paid_at": "TIMESTAMP",
     "confirmed_at": "TIMESTAMP",
     "cancelled_at": "TIMESTAMP",
+    "expires_at": "TIMESTAMP",
+    "expired_at": "TIMESTAMP",
     "created_at": "TIMESTAMP",
     "updated_at": "TIMESTAMP",
 }

@@ -9,6 +9,18 @@ function formatMoney(value, currency = 'MXN') {
   })
 }
 
+function formatDateTime(value) {
+  if (!value) return 'Sin fecha límite'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleString('es-MX', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 const statusCopy = {
   confirmed: {
     title: 'Inscripción confirmada',
@@ -139,6 +151,11 @@ export default function PaymentPage() {
                 <p className="mt-3 text-sm leading-6 text-slate-500">
                   Mercado Pago te mostrará las opciones disponibles, como tarjeta, transferencia o efectivo en tiendas participantes cuando estén habilitadas.
                 </p>
+                {payment.status === 'pending_payment' && (
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    Fecha límite: {formatDateTime(payment.expires_at)}
+                  </p>
+                )}
               </div>
 
               {payment.status !== 'confirmed' && payment.status !== 'cancelled' && payment.status !== 'expired' && (

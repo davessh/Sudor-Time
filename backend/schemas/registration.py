@@ -62,6 +62,8 @@ class RegistrationResponse(BaseModel):
     paid_at: Optional[datetime]
     confirmed_at: Optional[datetime]
     cancelled_at: Optional[datetime]
+    expires_at: Optional[datetime]
+    expired_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -112,6 +114,8 @@ class RegistrationDetailResponse(BaseModel):
     paid_at: Optional[datetime]
     confirmed_at: Optional[datetime]
     cancelled_at: Optional[datetime]
+    expires_at: Optional[datetime]
+    expired_at: Optional[datetime]
 
     tag_id: Optional[int]
     tag_codigo: Optional[str]

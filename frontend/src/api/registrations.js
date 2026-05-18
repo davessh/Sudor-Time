@@ -24,3 +24,10 @@ export function updateRegistrationStatus(registrationId, payload) {
 export function getEventRegistrations(eventId) {
   return apiRequest(`/registrations/by-event/${eventId}`)
 }
+
+export function expirePendingRegistrations(eventId) {
+  const query = eventId ? `?event_id=${eventId}` : ''
+  return apiRequest(`/registrations/expire-pending${query}`, {
+    method: 'POST',
+  })
+}
