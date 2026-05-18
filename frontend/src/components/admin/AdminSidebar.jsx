@@ -1,49 +1,46 @@
+import { Activity, ClipboardList, LayoutDashboard, RadioTower } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 export default function AdminSidebar() {
   const location = useLocation()
 
   const links = [
-    { to: '/admin', label: 'Dashboard' },
-    { to: '/admin/eventos', label: 'Eventos' },
-    { to: '/admin/tags', label: 'Tags' },
-    { to: '/admin/lecturas', label: 'Lecturas' },
+    { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/admin/eventos', label: 'Eventos', icon: ClipboardList },
+    { to: '/admin/tags', label: 'Tags', icon: Activity },
+    { to: '/admin/lecturas', label: 'Lecturas', icon: RadioTower },
   ]
 
   return (
-    <aside className="w-full border-b border-slate-200 bg-white lg:w-72 lg:border-b-0 lg:border-r">
-      <div className="p-6">
-        <Link to="/admin" className="block">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-            SudorTime Admin
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Panel de administración
-          </p>
+    <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r">
+      <div className="page-container flex items-center justify-between gap-4 py-4 lg:block lg:px-6 lg:py-6">
+        <Link to="/admin" className="block min-w-0">
+          <p className="text-xl font-black tracking-tight text-slate-950">SudorTime</p>
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Admin</p>
         </Link>
+
+        <nav className="max-w-[62vw] overflow-x-auto lg:mt-8 lg:max-w-none lg:overflow-visible">
+          <div className="flex gap-2 lg:block lg:space-y-2">
+            {links.map((link) => {
+              const activo = location.pathname === link.to
+              const Icon = link.icon
+
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition lg:w-full lg:px-4 lg:py-3 ${
+                    activo ? 'bg-slate-950 text-white' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {link.label}
+                </Link>
+              )
+            })}
+          </div>
+        </nav>
       </div>
-
-      <nav className="px-4 pb-6">
-        <div className="space-y-2">
-          {links.map((link) => {
-            const activo = location.pathname === link.to
-
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`block rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                  activo
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                {link.label}
-              </Link>
-            )
-          })}
-        </div>
-      </nav>
     </aside>
   )
 }

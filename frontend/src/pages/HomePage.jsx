@@ -1,52 +1,58 @@
-import { useState, useEffect } from 'react';
-import Hero from '../components/Hero';
-import EventCard from '../components/EventCard';
-import EventSkeleton from '../components/EventSkeleton';
-
-// Aquí importamos tu archivo real de la API. 
-// Nota: Verifica que la función dentro de api/events.js se llame 'getEvents' o cámbiala al nombre correcto.
-import { getEvents } from '../api/events'; 
+import { useEffect, useState } from 'react'
+import Hero from '../components/Hero'
+import EventCard from '../components/EventCard'
+import EventSkeleton from '../components/EventSkeleton'
+import { getEvents } from '../api/events'
 
 export default function HomePage() {
-  const [eventos, setEventos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [eventos, setEventos] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadEvents() {
       try {
-        setLoading(true);
-        // Llamamos a tu base de datos
-        const data = await getEvents(); 
-        setEventos(data);
+        setLoading(true)
+        const data = await getEvents()
+        setEventos(data)
       } catch (error) {
-        console.error("Error cargando los eventos:", error);
+        console.error('Error cargando los eventos:', error)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
-    
-    loadEvents();
-  }, []);
+
+    loadEvents()
+  }, [])
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9]">
+    <div className="page-shell">
       <Hero />
-      
-      <main className="mx-auto max-w-7xl px-6 py-12">
-        <h2 className="text-3xl font-extrabold text-slate-900 mb-8 tracking-tight">Próximos Eventos</h2>
-        
+
+      <main className="page-container py-8 sm:py-10 lg:py-12">
+        <div className="mb-6 flex flex-col gap-2 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="eyebrow">Calendario</p>
+            <h2 className="section-title mt-2">Próximos eventos</h2>
+          </div>
+          {!loading && (
+            <span className="chip w-fit">
+              {eventos.length} {eventos.length === 1 ? 'evento disponible' : 'eventos disponibles'}
+            </span>
+          )}
+        </div>
+
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {loading ? (
-            /* Muestra 3 tarjetas de esqueleto mientras carga tu API */
             [1, 2, 3].map((n) => <EventSkeleton key={n} />)
+          ) : eventos.length ? (
+            eventos.map((evento) => <EventCard key={evento.id} evento={evento} />)
           ) : (
-            /* Muestra los eventos reales una vez que la API responde */
-            eventos?.map((evento) => (
-              <EventCard key={evento.id} evento={evento} />
-            ))
+            <div className="panel panel-pad sm:col-span-2 lg:col-span-3">
+              <p className="font-semibold text-slate-700">No hay eventos publicados por ahora.</p>
+            </div>
           )}
         </div>
       </main>
     </div>
-  );
+  )
 }
