@@ -2,8 +2,7 @@ import { CheckCircle2, ClipboardList, UserRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { getEventSetup } from '../api/events'
-import { createParticipant } from '../api/participants'
-import { createRegistration } from '../api/registrations'
+import { createPublicRegistration } from '../api/registrations'
 
 function calcularEdad(fechaNacimiento, fechaEvento) {
   if (!fechaNacimiento || !fechaEvento) return null
@@ -168,27 +167,25 @@ export default function RegistrationPage() {
     try {
       setSending(true)
       const apellidos = separarApellidos(formData.apellidos)
-      const participante = await createParticipant({
-        nombre: formData.nombre.trim(),
-        apellido_paterno: apellidos.apellido_paterno,
-        apellido_materno: apellidos.apellido_materno,
-        fecha_nacimiento: formData.fechaNacimiento,
-        sexo: formData.sexo,
-        telefono: formData.telefono.trim(),
-        correo: formData.correo.trim(),
-        ciudad: formData.ciudad.trim(),
-        equipo: formData.equipo.trim() || null,
-        contacto_emergencia: null,
-        telefono_emergencia: null,
-      })
-
-      const registro = await createRegistration({
+      const registro = await createPublicRegistration({
         event_id: Number(id),
-        participant_id: participante.id,
         modality_id: Number(formData.modality_id),
         product_id: formData.product_id ? Number(formData.product_id) : null,
         category_id: categoriaCalculada?.id || null,
         talla_playera: requierePlayera ? formData.talla || null : null,
+        participant: {
+          nombre: formData.nombre.trim(),
+          apellido_paterno: apellidos.apellido_paterno,
+          apellido_materno: apellidos.apellido_materno,
+          fecha_nacimiento: formData.fechaNacimiento,
+          sexo: formData.sexo,
+          telefono: formData.telefono.trim(),
+          correo: formData.correo.trim(),
+          ciudad: formData.ciudad.trim(),
+          equipo: formData.equipo.trim() || null,
+          contacto_emergencia: null,
+          telefono_emergencia: null,
+        },
       })
 
       setSuccess('Preinscripción recibida. Tu lugar queda pendiente hasta completar el pago correspondiente.')

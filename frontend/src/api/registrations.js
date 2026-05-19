@@ -7,6 +7,13 @@ export function createRegistration(payload) {
   })
 }
 
+export function createPublicRegistration(payload) {
+  return apiRequest('/registrations/public', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function updateRegistration(registrationId, payload) {
   return apiRequest(`/registrations/${registrationId}`, {
     method: 'PUT',

@@ -20,6 +20,7 @@ from models import (
 )
 from schemas.registration import (
     RegistrationCreate,
+    RegistrationPublicCreate,
     RegistrationResponse,
     RegistrationDetailResponse,
     RegistrationStatusUpdate,
@@ -32,6 +33,21 @@ router = APIRouter(prefix="/registrations", tags=["Registrations"])
 ACTIVE_STOCK_STATUSES = {"pending_payment", "confirmed"}
 CLOSED_REGISTRATION_STATUSES = {"cancelled", "expired"}
 DEFAULT_REGISTRATION_EXPIRATION_HOURS = 48
+
+
+def _normalize_email(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    cleaned = value.strip().lower()
+    return cleaned or None
+
+
+def _normalize_phone(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+
+    digits = "".join(character for character in value if character.isdigit())
+    return digits or None
 
 
 def get_registration_expiration_hours() -> int:
@@ -93,6 +109,62 @@ def obtener_tag_activo_de_registro(registro: Registration) -> Optional[Registrat
         if rt.activo:
             return rt
     return None
+
+
+def buscar_registro_activo_duplicado(
+    db: Session,
+    event_id: int,
+    participant_id: Optional[int] = None,
+    correo: Optional[str] = None,
+    telefono: Optional[str] = None,
+    exclude_registration_id: Optional[int] = None,
+) -> Optional[Registration]:
+    normalized_email = _normalize_email(correo)
+    normalized_phone = _normalize_phone(telefono)
+
+    query = db.query(Registration).filter(
+        Registration.event_id == event_id,
+        ~Registration.status.in_(CLOSED_REGISTRATION_STATUSES),
+    )
+
+    if exclude_registration_id is not None:
+        query = query.filter(Registration.id != exclude_registration_id)
+
+    for registro in query.all():
+        participante = registro.participant
+
+        if participant_id is not None and registro.participant_id == participant_id:
+            return registro
+
+        if normalized_email and _normalize_email(participante.correo) == normalized_email:
+            return registro
+
+        if normalized_phone and _normalize_phone(participante.telefono) == normalized_phone:
+            return registro
+
+    return None
+
+
+def validar_registro_duplicado(
+    db: Session,
+    event_id: int,
+    participante: Participant,
+    exclude_registration_id: Optional[int] = None,
+):
+    duplicado = buscar_registro_activo_duplicado(
+        db,
+        event_id,
+        participant_id=participante.id,
+        correo=participante.correo,
+        telefono=participante.telefono,
+        exclude_registration_id=exclude_registration_id,
+    )
+
+    if duplicado:
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe una inscripcion activa o pendiente para este corredor en este evento",
+        )
 
 
 def crear_respuesta_detalle(registro: Registration) -> RegistrationDetailResponse:
@@ -202,9 +274,14 @@ def reservar_talla(db: Session, event_id: int, talla_playera: Optional[str]):
     if not talla_playera:
         return
 
-    talla = _query_tallas_activas(db, event_id).filter(EventShirtSize.talla == talla_playera).first()
+    talla = _query_tallas_activas(db, event_id).filter(
+        EventShirtSize.talla == talla_playera,
+    ).with_for_update().first()
+
     if talla and talla.stock is not None:
-        talla.stock = max(talla.stock - 1, 0)
+        if talla.stock <= 0:
+            raise HTTPException(status_code=400, detail="La talla seleccionada ya no tiene stock disponible")
+        talla.stock -= 1
 
 
 def liberar_talla(db: Session, event_id: Optional[int], talla_playera: Optional[str]):
@@ -282,12 +359,13 @@ def calcular_monto_inscripcion(modalidad: EventModality, producto: Optional[Regi
     return total
 
 
-@router.post("", response_model=RegistrationResponse)
-def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
-    evento, _, modalidad, producto, categoria, talla = validar_y_resolver_registro(data, db)
+def crear_registro_en_db(data: RegistrationCreate, db: Session) -> Registration:
+    evento, participante, modalidad, producto, categoria, talla = validar_y_resolver_registro(data, db)
 
     if not evento.inscripciones_abiertas:
         raise HTTPException(status_code=400, detail="Las inscripciones de este evento están cerradas")
+
+    validar_registro_duplicado(db, data.event_id, participante)
 
     existente = db.query(Registration).filter(
         Registration.event_id == data.event_id,
@@ -351,6 +429,51 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(nuevo)
     return nuevo
+
+
+@router.post("", response_model=RegistrationResponse)
+def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
+    return crear_registro_en_db(data, db)
+
+
+@router.post("/public", response_model=RegistrationResponse)
+def crear_registro_publico(data: RegistrationPublicCreate, db: Session = Depends(get_db)):
+    evento = db.query(Event).filter(Event.id == data.event_id).first()
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+
+    if not evento.inscripciones_abiertas:
+        raise HTTPException(status_code=400, detail="Las inscripciones de este evento estan cerradas")
+
+    if not data.participant.correo and not data.participant.telefono:
+        raise HTTPException(status_code=400, detail="Captura correo o telefono para validar la inscripcion")
+
+    duplicado = buscar_registro_activo_duplicado(
+        db,
+        data.event_id,
+        correo=data.participant.correo,
+        telefono=data.participant.telefono,
+    )
+    if duplicado:
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe una inscripcion activa o pendiente para este corredor en este evento",
+        )
+
+    participante = Participant(**data.participant.model_dump())
+    db.add(participante)
+    db.flush()
+
+    registration_data = RegistrationCreate(
+        event_id=data.event_id,
+        participant_id=participante.id,
+        modality_id=data.modality_id,
+        product_id=data.product_id,
+        category_id=data.category_id,
+        talla_playera=data.talla_playera,
+    )
+
+    return crear_registro_en_db(registration_data, db)
 
 
 @router.get("", response_model=list[RegistrationResponse], dependencies=[Depends(require_admin)])

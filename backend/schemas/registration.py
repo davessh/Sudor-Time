@@ -4,6 +4,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from schemas.participant import ParticipantCreate
+
 
 class RegistrationCreate(BaseModel):
     event_id: int = Field(ge=1)
@@ -29,6 +31,23 @@ class RegistrationCreate(BaseModel):
         if value and not value.replace("-", "").replace("_", "").isalnum():
             raise ValueError("Número de competidor no válido")
         return value
+
+
+class RegistrationPublicCreate(BaseModel):
+    event_id: int = Field(ge=1)
+    modality_id: int = Field(ge=1)
+    product_id: Optional[int] = Field(default=None, ge=1)
+    category_id: Optional[int] = Field(default=None, ge=1)
+    talla_playera: Optional[str] = Field(default=None, max_length=20)
+    participant: ParticipantCreate
+
+    @field_validator("talla_playera", mode="before")
+    @classmethod
+    def clean_optional_text(cls, value):
+        if value is None:
+            return None
+        cleaned = " ".join(str(value).strip().split())
+        return cleaned or None
 
 
 class RegistrationStatusUpdate(BaseModel):
