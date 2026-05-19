@@ -150,6 +150,17 @@ def _build_read_create(data: dict[str, Any]) -> RawReadCreate:
         raise HTTPException(status_code=400, detail="event_id y checkpoint_id deben ser numericos")
 
 
+def _try_build_read_create(data: dict[str, Any]) -> Optional[RawReadCreate]:
+    event_id = _first_value(data, "event_id", "event", "evento", "id_evento")
+    checkpoint_id = _first_value(data, "checkpoint_id", "checkpoint", "punto", "reader", "reader_id")
+    tag_code = _first_value(data, "tag_code", "tag", "codigo", "uid", "epc", "rfid", "code")
+
+    if not event_id or not checkpoint_id or not tag_code:
+        return None
+
+    return _build_read_create(data)
+
+
 def _validate_ingest_token(x_rfid_token: Optional[str], data: dict[str, Any]):
     expected_token = os.getenv("RFID_INGEST_TOKEN")
     if not expected_token:
@@ -228,6 +239,40 @@ async def recibir_lectura_flexible(
     _validate_ingest_token(x_rfid_token, payload)
     data = _build_read_create(payload)
     return guardar_lectura(data, db)
+
+
+@router.api_route("/pruebaMicro", methods=["GET", "POST"])
+async def recibir_prueba_micro(
+    request: Request,
+    x_rfid_token: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    payload = await _extract_flexible_payload(request)
+    _validate_ingest_token(x_rfid_token, payload)
+
+    parsed_read = _try_build_read_create(payload)
+    if parsed_read:
+        lectura = guardar_lectura(parsed_read, db)
+        return {
+            "status": "guardado",
+            "message": "Lectura RFID recibida y guardada",
+            "read_id": lectura.id,
+            "event_id": lectura.event_id,
+            "checkpoint_id": lectura.checkpoint_id,
+            "tag_code": lectura.tag_code,
+            "timestamp": lectura.timestamp,
+        }
+
+    tag_code = _first_value(payload, "tag_code", "tag", "codigo", "uid", "epc", "rfid", "code")
+    raw_text = tag_code or _first_value(payload, "raw", "text", "body") or next(iter(payload.values()), "")
+
+    return {
+        "status": "recibido",
+        "message": "Prueba recibida. Para guardar lectura real manda event_id, checkpoint_id y tag_code.",
+        "received": raw_text,
+        "payload": payload,
+        "server_time": datetime.now(timezone.utc),
+    }
 
 
 @router.get("", response_model=list[RawReadResponse], dependencies=[Depends(require_admin)])
