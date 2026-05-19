@@ -1,6 +1,6 @@
 import { CalendarDays, Clock, ExternalLink, MapPin, ShieldCheck, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getEventSetup } from '../api/events'
 import { getApiAssetUrl } from '../api/client'
 
@@ -50,9 +50,20 @@ function normalizeEventSetup(data) {
   }
 }
 
+function getStoredPendingRegistration(eventId) {
+  try {
+    const stored = JSON.parse(localStorage.getItem('sudortime_pending_registration') || 'null')
+    if (!stored || String(stored.event_id) !== String(eventId)) return null
+    return stored
+  } catch {
+    return null
+  }
+}
+
 export default function EventPage() {
   const { id } = useParams()
   const [evento, setEvento] = useState(null)
+  const [pendingRegistration, setPendingRegistration] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -73,11 +84,9 @@ export default function EventPage() {
     loadEvent()
   }, [id])
 
-  const precioDesde = useMemo(() => {
-    if (!evento?.modalidades?.length) return null
-    const precios = evento.modalidades.map((modalidad) => Number(modalidad.precio || 0)).filter((precio) => precio > 0)
-    return precios.length ? Math.min(...precios) : null
-  }, [evento])
+  useEffect(() => {
+    setPendingRegistration(getStoredPendingRegistration(id))
+  }, [id])
 
   if (loading) {
     return (
@@ -175,17 +184,20 @@ export default function EventPage() {
                   <p className="eyebrow">Modalidades</p>
                   <h2 className="mt-2 text-2xl font-black tracking-tight">Opciones disponibles</h2>
                 </div>
-                {precioDesde !== null && <span className="chip w-fit">Desde {formatMoney(precioDesde)}</span>}
               </div>
 
               {evento.modalidades.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {evento.modalidades.map((modalidad) => (
-                    <div key={modalidad.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <Link
+                      key={modalidad.id}
+                      to={`/evento/${evento.id}/inscripcion?modalidad=${modalidad.id}`}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-red-200 hover:bg-red-50"
+                    >
                       <h3 className="font-black text-slate-950">{getModalidadNombre(modalidad)}</h3>
                       {modalidad.descripcion && <p className="mt-2 text-sm leading-6 text-slate-600">{modalidad.descripcion}</p>}
                       <p className="mt-4 text-xl font-black text-red-700">{formatMoney(modalidad.precio)}</p>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
@@ -207,14 +219,20 @@ export default function EventPage() {
                 Completa tu inscripción y continúa al pago para confirmar tu lugar.
               </p>
 
-              {precioDesde !== null && (
-                <div className="mt-5 rounded-xl bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-500">Costo</p>
-                  <p className="mt-1 text-2xl font-black">Desde {formatMoney(precioDesde)}</p>
-                </div>
-              )}
-
               <div className="mt-6 grid gap-3">
+                {pendingRegistration && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                    <p>Tienes una preinscripcion pendiente en este dispositivo.</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <Link to={`/inscripcion/${pendingRegistration.registration_id}/pago`} className="btn-secondary bg-white">
+                        Continuar pago
+                      </Link>
+                      <Link to={`/evento/${evento.id}/inscripcion?registrationId=${pendingRegistration.registration_id}`} className="btn-secondary bg-white">
+                        Modificar
+                      </Link>
+                    </div>
+                  </div>
+                )}
                 <Link to={`/evento/${evento.id}/inscripcion`} className="btn-primary w-full">
                   Inscribirme
                 </Link>

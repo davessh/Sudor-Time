@@ -14,6 +14,13 @@ export function createPublicRegistration(payload) {
   })
 }
 
+export function updatePublicRegistration(registrationId, payload) {
+  return apiRequest(`/registrations/public/${registrationId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function updateRegistration(registrationId, payload) {
   return apiRequest(`/registrations/${registrationId}`, {
     method: 'PUT',

@@ -74,8 +74,26 @@ def _to_money(value) -> Decimal:
 
 
 def _registration_payment_status(registration: Registration) -> RegistrationPaymentStatusResponse:
+    participant = registration.participant
+    participant_name = " ".join(
+        part
+        for part in [
+            participant.nombre,
+            participant.apellido_paterno,
+            participant.apellido_materno,
+        ]
+        if part
+    )
+
     return RegistrationPaymentStatusResponse(
         registration_id=registration.id,
+        event_id=registration.event_id,
+        event_nombre=registration.event.nombre,
+        participante_nombre=participant_name,
+        modalidad_nombre=registration.modality.nombre if registration.modality else "Sin modalidad",
+        producto_nombre=registration.product.nombre if registration.product else None,
+        categoria_nombre=registration.category.nombre if registration.category else None,
+        talla_playera=registration.talla_playera,
         status=registration.status,
         payment_status=registration.payment_status,
         amount=registration.amount,

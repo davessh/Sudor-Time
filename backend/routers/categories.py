@@ -11,6 +11,12 @@ from security import require_admin
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
+def _same_sex_filter(query, sexo):
+    if sexo is None:
+        return query.filter(Category.sexo.is_(None))
+    return query.filter(Category.sexo == sexo)
+
+
 @router.post("", response_model=CategoryResponse, dependencies=[Depends(require_admin)])
 def crear_categoria(data: CategoryCreate, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == data.event_id).first()
@@ -24,11 +30,12 @@ def crear_categoria(data: CategoryCreate, db: Session = Depends(get_db)):
     if modalidad.event_id != data.event_id:
         raise HTTPException(status_code=400, detail="La modalidad no pertenece al evento indicado")
 
-    existente = db.query(Category).filter(
+    existente_query = db.query(Category).filter(
         Category.event_id == data.event_id,
         Category.modality_id == data.modality_id,
-        Category.nombre == data.nombre
-    ).first()
+        Category.nombre == data.nombre,
+    )
+    existente = _same_sex_filter(existente_query, data.sexo).first()
 
     if existente:
         raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre en esa modalidad")
@@ -82,12 +89,13 @@ def actualizar_categoria(category_id: int, data: CategoryCreate, db: Session = D
     if modalidad.event_id != data.event_id:
         raise HTTPException(status_code=400, detail="La modalidad no pertenece al evento indicado")
 
-    repetida = db.query(Category).filter(
+    repetida_query = db.query(Category).filter(
         Category.event_id == data.event_id,
         Category.modality_id == data.modality_id,
         Category.nombre == data.nombre,
-        Category.id != category_id
-    ).first()
+        Category.id != category_id,
+    )
+    repetida = _same_sex_filter(repetida_query, data.sexo).first()
 
     if repetida:
         raise HTTPException(status_code=400, detail="Ya existe una categoría con ese nombre en esa modalidad")

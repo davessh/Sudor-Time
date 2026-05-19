@@ -476,6 +476,77 @@ def crear_registro_publico(data: RegistrationPublicCreate, db: Session = Depends
     return crear_registro_en_db(registration_data, db)
 
 
+@router.put("/public/{registration_id}", response_model=RegistrationResponse)
+def actualizar_registro_publico(
+    registration_id: int,
+    data: RegistrationPublicCreate,
+    db: Session = Depends(get_db),
+):
+    registro = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not registro:
+        raise HTTPException(status_code=404, detail="Preinscripcion no encontrada")
+
+    if expire_registration_if_needed(db, registro):
+        db.commit()
+        db.refresh(registro)
+
+    if registro.status != "pending_payment" or registro.payment_status == "paid":
+        raise HTTPException(status_code=400, detail="Solo puedes editar preinscripciones pendientes de pago")
+
+    if registro.event_id != data.event_id:
+        raise HTTPException(status_code=400, detail="La preinscripcion no pertenece a este evento")
+
+    old_event_id = registro.event_id
+    old_talla = registro.talla_playera
+    participante = registro.participant
+
+    for key, value in data.participant.model_dump().items():
+        setattr(participante, key, value)
+
+    registration_data = RegistrationCreate(
+        event_id=data.event_id,
+        participant_id=participante.id,
+        modality_id=data.modality_id,
+        product_id=data.product_id,
+        category_id=data.category_id,
+        talla_playera=data.talla_playera,
+    )
+
+    _, _, modalidad, producto, categoria, talla = validar_y_resolver_registro(
+        registration_data,
+        db,
+        registro_actual=registro,
+    )
+
+    validar_registro_duplicado(
+        db,
+        data.event_id,
+        participante,
+        exclude_registration_id=registration_id,
+    )
+
+    nueva_talla = talla.talla if talla else None
+    if old_event_id != data.event_id or old_talla != nueva_talla:
+        liberar_talla(db, old_event_id, old_talla)
+        reservar_talla(db, data.event_id, nueva_talla)
+
+    registro.modality_id = data.modality_id
+    registro.product_id = data.product_id
+    registro.category_id = categoria.id if categoria else data.category_id
+    registro.talla_playera = nueva_talla
+    registro.amount = calcular_monto_inscripcion(modalidad, producto)
+    registro.payment_provider = None
+    registro.payment_reference = None
+    registro.payment_preference_id = None
+    registro.payment_checkout_url = None
+    registro.payment_expires_at = None
+    registro.payment_status_detail = None
+
+    db.commit()
+    db.refresh(registro)
+    return registro
+
+
 @router.get("", response_model=list[RegistrationResponse], dependencies=[Depends(require_admin)])
 def listar_registros(
     event_id: Optional[int] = None,

@@ -31,9 +31,9 @@ const initialModalityForm = {
 }
 
 const initialCategoryForm = {
-  modality_id: '',
+  modality_ids: [],
   nombre: '',
-  sexo: '',
+  sexo_mode: 'ambos',
   edad_min: '',
   edad_max: '',
 }
@@ -158,10 +158,10 @@ export default function AdminEventSetupPage() {
 
   const shirtSizesForAdmin = setup?.all_shirt_sizes || setup?.shirt_sizes || []
 
-  const selectedModality = useMemo(() => {
-    if (!setup || !categoryForm.modality_id) return null
-    return setup.modalities.find((item) => String(item.id) === String(categoryForm.modality_id)) || null
-  }, [setup, categoryForm.modality_id])
+  const selectedModalities = useMemo(() => {
+    if (!setup) return []
+    return setup.modalities.filter((item) => categoryForm.modality_ids.includes(String(item.id)))
+  }, [setup, categoryForm.modality_ids])
 
   function showError(err, fallback) {
     setSuccess('')
@@ -189,6 +189,26 @@ export default function AdminEventSetupPage() {
         [name]: type === 'checkbox' ? checked : value,
       }))
     }
+  }
+
+  function toggleCategoryModality(modalityId) {
+    const value = String(modalityId)
+    setCategoryForm((prev) => {
+      const selected = prev.modality_ids.includes(value)
+      return {
+        ...prev,
+        modality_ids: selected
+          ? prev.modality_ids.filter((item) => item !== value)
+          : [...prev.modality_ids, value],
+      }
+    })
+  }
+
+  function selectAllCategoryModalities() {
+    setCategoryForm((prev) => ({
+      ...prev,
+      modality_ids: setup.modalities.map((item) => String(item.id)),
+    }))
   }
 
   async function saveEvent(e) {
@@ -303,17 +323,25 @@ export default function AdminEventSetupPage() {
     e.preventDefault()
     try {
       setSaving('category')
-      await createCategory({
-        event_id: Number(id),
-        modality_id: Number(categoryForm.modality_id),
-        nombre: categoryForm.nombre.trim(),
-        sexo: categoryForm.sexo || null,
-        edad_min: toNumberOrNull(categoryForm.edad_min),
-        edad_max: toNumberOrNull(categoryForm.edad_max),
-      })
+      const sexos = categoryForm.sexo_mode === 'ambos'
+        ? ['masculino', 'femenino']
+        : [categoryForm.sexo_mode === 'mixta' ? null : categoryForm.sexo_mode]
+
+      const requests = categoryForm.modality_ids.flatMap((modalityId) => (
+        sexos.map((sexo) => createCategory({
+          event_id: Number(id),
+          modality_id: Number(modalityId),
+          nombre: categoryForm.nombre.trim(),
+          sexo,
+          edad_min: toNumberOrNull(categoryForm.edad_min),
+          edad_max: toNumberOrNull(categoryForm.edad_max),
+        }))
+      ))
+
+      await Promise.all(requests)
       setCategoryForm(initialCategoryForm)
       await loadSetup()
-      showSuccess('Categoría creada.')
+      showSuccess(requests.length === 1 ? 'Categoria creada.' : `${requests.length} categorias creadas.`)
     } catch (err) {
       showError(err, 'No se pudo crear la categoría')
     } finally {
@@ -515,20 +543,35 @@ export default function AdminEventSetupPage() {
 
           <SectionCard title="Categorías" subtitle="Sirven para clasificar automáticamente por edad, sexo y modalidad.">
             <form onSubmit={addCategory} className="grid gap-4 md:grid-cols-2">
-              <Field label="Modalidad">
-                <select name="modality_id" value={categoryForm.modality_id} onChange={handleFormChange(setCategoryForm)} required className={inputClass()}>
-                  <option value="">Selecciona modalidad</option>
-                  {setup.modalities.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
-                </select>
-              </Field>
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-slate-700">Modalidades</span>
+                  <button type="button" onClick={selectAllCategoryModalities} className="text-sm font-bold text-red-700 hover:text-red-800">
+                    Seleccionar todas
+                  </button>
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {setup.modalities.map((item) => (
+                    <label key={item.id} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={categoryForm.modality_ids.includes(String(item.id))}
+                        onChange={() => toggleCategoryModality(item.id)}
+                      />
+                      {item.nombre}
+                    </label>
+                  ))}
+                </div>
+              </div>
               <Field label="Nombre de categoría">
                 <input name="nombre" value={categoryForm.nombre} onChange={handleFormChange(setCategoryForm)} required placeholder="18-29, Libre, Máster..." className={inputClass()} />
               </Field>
               <Field label="Sexo">
-                <select name="sexo" value={categoryForm.sexo} onChange={handleFormChange(setCategoryForm)} className={inputClass()}>
-                  <option value="">Mixta</option>
-                  <option value="masculino">Masculino</option>
-                  <option value="femenino">Femenino</option>
+                <select name="sexo_mode" value={categoryForm.sexo_mode} onChange={handleFormChange(setCategoryForm)} className={inputClass()}>
+                  <option value="ambos">Masculino y Femenino</option>
+                  <option value="mixta">Mixta</option>
+                  <option value="masculino">Solo Masculino</option>
+                  <option value="femenino">Solo Femenino</option>
                 </select>
               </Field>
               <div className="grid grid-cols-2 gap-3">
@@ -540,8 +583,8 @@ export default function AdminEventSetupPage() {
                 </Field>
               </div>
               <div className="md:col-span-2">
-                <button disabled={saving === 'category' || setup.modalities.length === 0} className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
-                  {saving === 'category' ? 'Creando...' : `Crear categoría${selectedModality ? ` en ${selectedModality.nombre}` : ''}`}
+                <button disabled={saving === 'category' || selectedModalities.length === 0} className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
+                  {saving === 'category' ? 'Creando...' : `Crear categoria en ${selectedModalities.length || 0} modalidad(es)`}
                 </button>
               </div>
             </form>

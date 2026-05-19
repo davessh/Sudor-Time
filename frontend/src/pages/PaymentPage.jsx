@@ -44,11 +44,22 @@ const statusCopy = {
   },
 }
 
+function getStoredPendingRegistration(registrationId) {
+  try {
+    const stored = JSON.parse(localStorage.getItem('sudortime_pending_registration') || 'null')
+    if (!stored || String(stored.registration_id) !== String(registrationId)) return null
+    return stored
+  } catch {
+    return null
+  }
+}
+
 export default function PaymentPage() {
   const { registrationId } = useParams()
   const [searchParams] = useSearchParams()
   const returnStatus = searchParams.get('status')
   const [payment, setPayment] = useState(null)
+  const [storedPending, setStoredPending] = useState(null)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
@@ -64,6 +75,12 @@ export default function PaymentPage() {
       setError('')
       const data = await getRegistrationPaymentStatus(registrationId)
       setPayment(data)
+      const stored = getStoredPendingRegistration(registrationId)
+      setStoredPending(stored)
+      if (stored && ['confirmed', 'cancelled', 'expired'].includes(data.status)) {
+        localStorage.removeItem('sudortime_pending_registration')
+        setStoredPending(null)
+      }
     } catch (err) {
       setError(err.message || 'No se pudo consultar el estado de pago')
     } finally {
@@ -145,10 +162,28 @@ export default function PaymentPage() {
                 )}
               </div>
 
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+                <p className="eyebrow">Resumen de inscripcion</p>
+                <div className="mt-4 space-y-3 text-sm">
+                  <SummaryLine label="Evento" value={payment.event_nombre} />
+                  <SummaryLine label="Corredor" value={payment.participante_nombre} />
+                  <SummaryLine label="Modalidad" value={payment.modalidad_nombre} />
+                  <SummaryLine label="Paquete" value={payment.producto_nombre || 'Sin paquete adicional'} />
+                  <SummaryLine label="Categoria" value={payment.categoria_nombre || 'Por confirmar'} />
+                  <SummaryLine label="Playera" value={payment.talla_playera || 'No incluida'} />
+                </div>
+              </div>
+
               {payment.status !== 'confirmed' && payment.status !== 'cancelled' && payment.status !== 'expired' && (
                 <button type="button" onClick={handlePay} disabled={paying} className="btn-primary mt-6 w-full">
                   {paying ? 'Abriendo Mercado Pago...' : 'Pagar inscripción'}
                 </button>
+              )}
+
+              {payment.status === 'pending_payment' && storedPending && (
+                <Link to={`/evento/${payment.event_id}/inscripcion?registrationId=${payment.registration_id}`} className="btn-secondary mt-3 w-full">
+                  Modificar preinscripcion
+                </Link>
               )}
 
               <button type="button" onClick={loadStatus} className="btn-secondary mt-3 w-full">
@@ -161,6 +196,15 @@ export default function PaymentPage() {
           {error && <p className="notice-error mt-5">{error}</p>}
         </section>
       </main>
+    </div>
+  )
+}
+
+function SummaryLine({ label, value }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-right font-semibold text-slate-900">{value}</span>
     </div>
   )
 }

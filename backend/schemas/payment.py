@@ -21,6 +21,13 @@ class MercadoPagoPreferenceResponse(BaseModel):
 
 class RegistrationPaymentStatusResponse(BaseModel):
     registration_id: int
+    event_id: int
+    event_nombre: str
+    participante_nombre: str
+    modalidad_nombre: str
+    producto_nombre: Optional[str] = None
+    categoria_nombre: Optional[str] = None
+    talla_playera: Optional[str] = None
     status: str
     payment_status: str
     amount: Optional[Decimal]

@@ -1,8 +1,8 @@
 import { CheckCircle2, ClipboardList, UserRound } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { getEventSetup } from '../api/events'
-import { createPublicRegistration } from '../api/registrations'
+import { createPublicRegistration, updatePublicRegistration } from '../api/registrations'
 
 function calcularEdad(fechaNacimiento, fechaEvento) {
   if (!fechaNacimiento || !fechaEvento) return null
@@ -62,9 +62,29 @@ const emptyForm = {
   equipo: '',
 }
 
+const PENDING_REGISTRATION_KEY = 'sudortime_pending_registration'
+
+function getStoredPendingRegistration(eventId, registrationId = '') {
+  try {
+    const stored = JSON.parse(localStorage.getItem(PENDING_REGISTRATION_KEY) || 'null')
+    if (!stored || String(stored.event_id) !== String(eventId)) return null
+    if (registrationId && String(stored.registration_id) !== String(registrationId)) return null
+    return stored
+  } catch {
+    return null
+  }
+}
+
+function saveStoredPendingRegistration(data) {
+  localStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify(data))
+}
+
 export default function RegistrationPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const selectedModalityParam = searchParams.get('modalidad')
+  const editRegistrationId = searchParams.get('registrationId')
   const [setup, setSetup] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
@@ -88,6 +108,20 @@ export default function RegistrationPage() {
 
     loadEvent()
   }, [id])
+
+  useEffect(() => {
+    if (!setup) return
+
+    const stored = getStoredPendingRegistration(id, editRegistrationId || '')
+    if (stored?.formData) {
+      setFormData(stored.formData)
+      return
+    }
+
+    if (selectedModalityParam && (setup.modalities || []).some((item) => String(item.id) === String(selectedModalityParam))) {
+      setFormData((prev) => ({ ...prev, modality_id: selectedModalityParam, product_id: '' }))
+    }
+  }, [setup, id, editRegistrationId, selectedModalityParam])
 
   const edad = useMemo(() => calcularEdad(formData.fechaNacimiento, setup?.fecha), [formData.fechaNacimiento, setup?.fecha])
 
@@ -167,7 +201,7 @@ export default function RegistrationPage() {
     try {
       setSending(true)
       const apellidos = separarApellidos(formData.apellidos)
-      const registro = await createPublicRegistration({
+      const payload = {
         event_id: Number(id),
         modality_id: Number(formData.modality_id),
         product_id: formData.product_id ? Number(formData.product_id) : null,
@@ -186,11 +220,22 @@ export default function RegistrationPage() {
           contacto_emergencia: null,
           telefono_emergencia: null,
         },
-      })
+      }
+
+      const registro = editRegistrationId
+        ? await updatePublicRegistration(editRegistrationId, payload)
+        : await createPublicRegistration(payload)
 
       setSuccess('Preinscripción recibida. Tu lugar queda pendiente hasta completar el pago correspondiente.')
+      saveStoredPendingRegistration({
+        event_id: Number(id),
+        registration_id: registro.id,
+        formData,
+        updated_at: new Date().toISOString(),
+      })
+
       navigate(`/inscripcion/${registro.id}/pago`)
-      setFormData(emptyForm)
+      if (!editRegistrationId) setFormData(emptyForm)
     } catch (err) {
       setError(err.message || 'No se pudo completar la inscripción')
     } finally {
@@ -243,7 +288,7 @@ export default function RegistrationPage() {
       </header>
 
       <main className="page-container grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:py-8">
-        <form onSubmit={handleSubmit} className="panel panel-pad space-y-8">
+        <form id="registration-form" onSubmit={handleSubmit} className="panel panel-pad space-y-8">
           <FormSection icon={ClipboardList} title="1. Modalidad">
             <div className="grid gap-3 sm:grid-cols-2">
               {(setup.modalities || []).map((modalidad) => {
@@ -348,9 +393,6 @@ export default function RegistrationPage() {
           {error && <p className="notice-error">{error}</p>}
           {success && <p className="notice-success">{success}</p>}
 
-          <button type="submit" disabled={!formularioValido || sending} className="btn-primary w-full">
-            {sending ? 'Registrando...' : 'Crear preinscripción'}
-          </button>
         </form>
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
@@ -390,6 +432,10 @@ export default function RegistrationPage() {
               </p>
             )}
           </div>
+
+          <button type="submit" form="registration-form" disabled={!formularioValido || sending} className="btn-primary w-full">
+            {sending ? 'Registrando...' : editRegistrationId ? 'Actualizar preinscripcion' : 'Crear preinscripcion'}
+          </button>
         </aside>
       </main>
     </div>
