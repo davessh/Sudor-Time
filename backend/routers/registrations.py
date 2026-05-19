@@ -1,9 +1,12 @@
+import csv
+import io
 import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from dependencies import get_db
@@ -250,6 +253,36 @@ def crear_respuesta_publica(registro: Registration) -> RegistrationPublicLookupR
         paid_at=registro.paid_at,
         confirmed_at=registro.confirmed_at,
     )
+
+
+def _registration_search_text(registro: Registration) -> str:
+    participante = registro.participant
+    values = [
+        participante.nombre,
+        participante.apellido_paterno,
+        participante.apellido_materno,
+        participante.correo,
+        participante.telefono,
+        registro.numero_competidor,
+        registro.modality.nombre if registro.modality else None,
+        registro.category.nombre if registro.category else None,
+        registro.product.nombre if registro.product else None,
+        registro.talla_playera,
+        str(registro.id),
+    ]
+    return " ".join(str(value).lower() for value in values if value)
+
+
+def _format_csv_datetime(value: Optional[datetime]) -> str:
+    if not value:
+        return ""
+    return value.isoformat()
+
+
+def _format_csv_decimal(value: Optional[Decimal]) -> str:
+    if value is None:
+        return ""
+    return str(value)
 
 
 def _query_tallas_activas(db: Session, event_id: int):
@@ -702,6 +735,121 @@ def listar_registros_por_evento(
     registros = query.order_by(Registration.id.desc()).all()
 
     return [crear_respuesta_detalle(registro) for registro in registros]
+
+
+@router.get("/by-event/{event_id}/export.csv", dependencies=[Depends(require_admin)])
+def exportar_registros_por_evento_csv(
+    event_id: int,
+    talla_playera: Optional[str] = None,
+    status: Optional[str] = None,
+    payment_status: Optional[str] = None,
+    modality_id: Optional[int] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    expire_pending_registrations(db, event_id=event_id)
+    evento = db.query(Event).filter(Event.id == event_id).first()
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+
+    query = db.query(Registration).filter(Registration.event_id == event_id)
+
+    if modality_id is not None:
+        query = query.filter(Registration.modality_id == modality_id)
+
+    if talla_playera:
+        if talla_playera == "Sin talla":
+            query = query.filter(Registration.talla_playera.is_(None))
+        else:
+            query = query.filter(Registration.talla_playera == talla_playera)
+
+    if status:
+        query = query.filter(Registration.status == status)
+
+    if payment_status:
+        query = query.filter(Registration.payment_status == payment_status)
+
+    registros = query.order_by(Registration.id.asc()).all()
+
+    if search:
+        search_text = search.strip().lower()
+        registros = [
+            registro
+            for registro in registros
+            if search_text in _registration_search_text(registro)
+        ]
+
+    output = io.StringIO()
+    output.write("\ufeff")
+    output.write("sep=,\r\n")
+    writer = csv.writer(output, lineterminator="\r\n")
+
+    writer.writerow([
+        "Folio",
+        "Evento",
+        "Fecha evento",
+        "Nombre",
+        "Apellido paterno",
+        "Apellido materno",
+        "Sexo",
+        "Edad evento",
+        "Telefono",
+        "Correo",
+        "Ciudad",
+        "Equipo",
+        "Modalidad",
+        "Categoria",
+        "Paquete",
+        "Talla",
+        "Estado inscripcion",
+        "Estado pago",
+        "Monto",
+        "Moneda",
+        "Numero competidor",
+        "Tag",
+        "Vence pago",
+        "Pagado en",
+        "Confirmado en",
+        "Creado en",
+    ])
+
+    for registro in registros:
+        participante = registro.participant
+        writer.writerow([
+            registro.id,
+            registro.event.nombre,
+            registro.event.fecha.isoformat() if registro.event.fecha else "",
+            participante.nombre,
+            participante.apellido_paterno,
+            participante.apellido_materno or "",
+            participante.sexo or "",
+            calcular_edad(participante.fecha_nacimiento, registro.event.fecha) or "",
+            participante.telefono or "",
+            participante.correo or "",
+            participante.ciudad or "",
+            participante.equipo or "",
+            registro.modality.nombre if registro.modality else "",
+            registro.category.nombre if registro.category else "",
+            registro.product.nombre if registro.product else "",
+            registro.talla_playera or "",
+            registro.status,
+            registro.payment_status,
+            _format_csv_decimal(registro.amount),
+            registro.currency or "",
+            registro.numero_competidor or "",
+            obtener_tag_activo_de_registro(registro).tag.codigo if obtener_tag_activo_de_registro(registro) else "",
+            _format_csv_datetime(registro.expires_at),
+            _format_csv_datetime(registro.paid_at),
+            _format_csv_datetime(registro.confirmed_at),
+            _format_csv_datetime(registro.created_at),
+        ])
+
+    filename = f"inscritos-evento-{event_id}.csv"
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{registration_id}", response_model=RegistrationDetailResponse, dependencies=[Depends(require_admin)])

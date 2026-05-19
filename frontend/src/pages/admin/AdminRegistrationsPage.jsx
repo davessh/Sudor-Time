@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getEventById, getEventStats } from '../../api/events'
-import { expirePendingRegistrations, getEventRegistrations, updateRegistration, updateRegistrationStatus } from '../../api/registrations'
+import { downloadEventRegistrationsCsv, expirePendingRegistrations, getEventRegistrations, updateRegistration, updateRegistrationStatus } from '../../api/registrations'
 import { getTags } from '../../api/tags'
 
 export default function AdminRegistrationsPage() {
@@ -17,6 +17,7 @@ export default function AdminRegistrationsPage() {
   const [error, setError] = useState('')
   const [savingId, setSavingId] = useState(null)
   const [expiring, setExpiring] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const [filtroTalla, setFiltroTalla] = useState('')
   const [filtroModalidad, setFiltroModalidad] = useState('')
@@ -163,6 +164,33 @@ export default function AdminRegistrationsPage() {
     }
   }
 
+  async function exportarCsv() {
+    try {
+      setExporting(true)
+      setError('')
+
+      const { blob, filename } = await downloadEventRegistrationsCsv(id, {
+        talla_playera: filtroTalla,
+        modality_id: filtroModalidad,
+        status: filtroEstado,
+        search: busqueda.trim(),
+      })
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.message || 'No se pudo exportar el CSV')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   function formatDateTime(value) {
     if (!value) return 'Sin límite'
     const date = new Date(value)
@@ -225,9 +253,14 @@ export default function AdminRegistrationsPage() {
       title="Inscritos por evento"
       subtitle={`${evento.nombre} · ${evento.fecha} · ${evento.lugar}`}
       actions={
-        <button type="button" onClick={expirarPendientes} disabled={expiring} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold hover:bg-slate-100 disabled:opacity-60">
-          {expiring ? 'Expirando...' : 'Expirar vencidas'}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={exportarCsv} disabled={exporting} className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60">
+            {exporting ? 'Exportando...' : 'Exportar CSV'}
+          </button>
+          <button type="button" onClick={expirarPendientes} disabled={expiring} className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold hover:bg-slate-100 disabled:opacity-60">
+            {expiring ? 'Expirando...' : 'Expirar vencidas'}
+          </button>
+        </div>
       }
     >
       {error && <p className="mb-6 rounded-2xl bg-red-50 px-4 py-3 font-semibold text-red-700">Error: {error}</p>}
