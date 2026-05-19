@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage'
 import EventPage from './pages/EventPage'
 import ResultsPage from './pages/ResultsPage'
 import RegistrationPage from './pages/RegistrationPage'
+import RegistrationLookupPage from './pages/RegistrationLookupPage'
 import PaymentPage from './pages/PaymentPage'
 import RunnerDetailPage from './pages/RunnerDetailPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -27,6 +28,7 @@ export default function App() {
       <Route path="/evento/:id" element={<EventPage />} />
       <Route path="/evento/:id/resultados" element={<ResultsPage />} />
       <Route path="/evento/:id/inscripcion" element={<RegistrationPage />} />
+      <Route path="/consultar-inscripcion" element={<RegistrationLookupPage />} />
       <Route path="/inscripcion/:registrationId/pago" element={<PaymentPage />} />
       <Route path="/corredor/:id" element={<RunnerDetailPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />

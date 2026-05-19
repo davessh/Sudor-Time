@@ -21,6 +21,12 @@ export function updatePublicRegistration(registrationId, payload) {
   })
 }
 
+export function searchPublicRegistrations(query, eventId = '') {
+  const params = new URLSearchParams({ q: query })
+  if (eventId) params.set('event_id', eventId)
+  return apiRequest(`/registrations/public/search?${params.toString()}`)
+}
+
 export function updateRegistration(registrationId, payload) {
   return apiRequest(`/registrations/${registrationId}`, {
     method: 'PUT',

@@ -236,6 +236,9 @@ export default function EventPage() {
                 <Link to={`/evento/${evento.id}/inscripcion`} className="btn-primary w-full">
                   Inscribirme
                 </Link>
+                <Link to="/consultar-inscripcion" className="btn-secondary w-full">
+                  Consultar inscripcion
+                </Link>
                 <Link to={`/evento/${evento.id}/resultados`} className="btn-secondary w-full">
                   Ver resultados
                 </Link>

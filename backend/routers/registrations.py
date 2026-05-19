@@ -23,6 +23,7 @@ from schemas.registration import (
     RegistrationPublicCreate,
     RegistrationResponse,
     RegistrationDetailResponse,
+    RegistrationPublicLookupResponse,
     RegistrationStatusUpdate,
 )
 from security import require_admin
@@ -215,6 +216,39 @@ def crear_respuesta_detalle(registro: Registration) -> RegistrationDetailRespons
         expired_at=registro.expired_at,
         tag_id=tag_activo.tag.id if tag_activo else None,
         tag_codigo=tag_activo.tag.codigo if tag_activo else None,
+    )
+
+
+def crear_respuesta_publica(registro: Registration) -> RegistrationPublicLookupResponse:
+    participante = registro.participant
+    participante_nombre = " ".join(
+        part
+        for part in [
+            participante.nombre,
+            participante.apellido_paterno,
+            participante.apellido_materno,
+        ]
+        if part
+    )
+
+    return RegistrationPublicLookupResponse(
+        id=registro.id,
+        event_id=registro.event_id,
+        event_nombre=registro.event.nombre,
+        participante_nombre=participante_nombre,
+        modalidad_nombre=registro.modality.nombre if registro.modality else "Sin modalidad",
+        producto_nombre=registro.product.nombre if registro.product else None,
+        categoria_nombre=registro.category.nombre if registro.category else None,
+        numero_competidor=registro.numero_competidor,
+        talla_playera=registro.talla_playera,
+        status=registro.status,
+        payment_status=registro.payment_status,
+        amount=registro.amount,
+        currency=registro.currency,
+        expires_at=registro.expires_at,
+        expired_at=registro.expired_at,
+        paid_at=registro.paid_at,
+        confirmed_at=registro.confirmed_at,
     )
 
 
@@ -545,6 +579,66 @@ def actualizar_registro_publico(
     db.commit()
     db.refresh(registro)
     return registro
+
+
+@router.get("/public/search", response_model=list[RegistrationPublicLookupResponse])
+def buscar_registro_publico(
+    q: str,
+    event_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    query_text = " ".join(q.strip().split())
+    normalized_phone = _normalize_phone(query_text)
+
+    if len(query_text) < 3 and not normalized_phone:
+        raise HTTPException(status_code=400, detail="Ingresa correo, telefono o folio")
+
+    expire_pending_registrations(db, event_id=event_id)
+
+    normalized_email = _normalize_email(query_text)
+    registration_id = int(normalized_phone) if normalized_phone and len(normalized_phone) <= 9 and "@" not in query_text else None
+
+    base_query = db.query(Registration)
+    if event_id is not None:
+        base_query = base_query.filter(Registration.event_id == event_id)
+
+    resultados: list[Registration] = []
+
+    if registration_id is not None:
+        registro = base_query.filter(Registration.id == registration_id).first()
+        if registro:
+            resultados.append(registro)
+
+    if "@" in query_text:
+        email_matches = (
+            base_query
+            .join(Participant, Registration.participant_id == Participant.id)
+            .filter(Participant.correo.isnot(None))
+            .all()
+        )
+        resultados.extend(
+            registro
+            for registro in email_matches
+            if _normalize_email(registro.participant.correo) == normalized_email
+        )
+
+    if normalized_phone and len(normalized_phone) >= 7:
+        phone_matches = base_query.join(Participant, Registration.participant_id == Participant.id).all()
+        resultados.extend(
+            registro
+            for registro in phone_matches
+            if _normalize_phone(registro.participant.telefono) == normalized_phone
+        )
+
+    unique_results = []
+    seen_ids = set()
+    for registro in sorted(resultados, key=lambda item: item.id, reverse=True):
+        if registro.id in seen_ids:
+            continue
+        seen_ids.add(registro.id)
+        unique_results.append(registro)
+
+    return [crear_respuesta_publica(registro) for registro in unique_results[:10]]
 
 
 @router.get("", response_model=list[RegistrationResponse], dependencies=[Depends(require_admin)])

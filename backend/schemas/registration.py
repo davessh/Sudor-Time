@@ -138,3 +138,23 @@ class RegistrationDetailResponse(BaseModel):
 
     tag_id: Optional[int]
     tag_codigo: Optional[str]
+
+
+class RegistrationPublicLookupResponse(BaseModel):
+    id: int
+    event_id: int
+    event_nombre: str
+    participante_nombre: str
+    modalidad_nombre: str
+    producto_nombre: Optional[str]
+    categoria_nombre: Optional[str]
+    numero_competidor: Optional[str]
+    talla_playera: Optional[str]
+    status: str
+    payment_status: str
+    amount: Optional[Decimal]
+    currency: str
+    expires_at: Optional[datetime]
+    expired_at: Optional[datetime]
+    paid_at: Optional[datetime]
+    confirmed_at: Optional[datetime]

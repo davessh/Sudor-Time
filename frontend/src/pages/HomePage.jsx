@@ -28,7 +28,7 @@ export default function HomePage() {
     <div className="page-shell">
       <Hero />
 
-      <main className="page-container py-8 sm:py-10 lg:py-12">
+      <main id="eventos" className="page-container py-8 sm:py-10 lg:py-12">
         <div className="mb-6 flex flex-col gap-2 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="eyebrow">Calendario</p>
