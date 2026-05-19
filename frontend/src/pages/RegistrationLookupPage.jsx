@@ -63,7 +63,7 @@ export default function RegistrationLookupPage() {
     setSearched(false)
 
     if (!canSearch) {
-      setError('Ingresa correo, telefono o folio.')
+      setError('Ingresa correo, telefono o numero.')
       return
     }
 
@@ -87,8 +87,8 @@ export default function RegistrationLookupPage() {
           <Link to="/" className="text-sm font-bold text-slate-500 transition hover:text-slate-950">
             SudorTime
           </Link>
-          <Link to="/" className="btn-secondary min-h-10 px-4 py-2">
-            Ver eventos
+          <Link to="/" className="text-sm font-bold text-slate-500 transition hover:text-slate-950">
+            Inicio
           </Link>
         </div>
       </header>
@@ -103,11 +103,11 @@ export default function RegistrationLookupPage() {
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <label className="block">
-              <span className="field-label">Correo, telefono o folio</span>
+              <span className="field-label">Correo, telefono o numero</span>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="correo@ejemplo.com, 6861234567 o 25"
+                placeholder="correo@ejemplo.com, 6861234567 o numero"
                 className="input-control mt-2"
               />
             </label>
@@ -136,7 +136,7 @@ export default function RegistrationLookupPage() {
             <div className="panel panel-pad">
               <p className="font-bold text-slate-900">No encontramos resultados.</p>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Revisa que el correo, telefono o folio coincida con el registro de inscripcion.
+                Revisa que el correo, telefono o numero coincida con el registro de inscripcion.
               </p>
             </div>
           )}
@@ -145,7 +145,9 @@ export default function RegistrationLookupPage() {
             <article key={registration.id} className="panel panel-pad">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-sm font-bold text-slate-500">Folio #{registration.id}</p>
+                  <p className="text-sm font-bold text-slate-500">
+                    {registration.numero_competidor ? `Numero ${registration.numero_competidor}` : `Numero pendiente · Registro ${registration.id}`}
+                  </p>
                   <h2 className="mt-1 text-2xl font-black tracking-tight">{registration.event_nombre}</h2>
                   <p className="mt-2 font-semibold text-slate-700">{registration.participante_nombre}</p>
                 </div>

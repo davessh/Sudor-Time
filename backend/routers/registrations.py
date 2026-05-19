@@ -624,7 +624,7 @@ def buscar_registro_publico(
     normalized_phone = _normalize_phone(query_text)
 
     if len(query_text) < 3 and not normalized_phone:
-        raise HTTPException(status_code=400, detail="Ingresa correo, telefono o folio")
+        raise HTTPException(status_code=400, detail="Ingresa correo, telefono o numero")
 
     expire_pending_registrations(db, event_id=event_id)
 
@@ -641,6 +641,9 @@ def buscar_registro_publico(
         registro = base_query.filter(Registration.id == registration_id).first()
         if registro:
             resultados.append(registro)
+
+        number_matches = base_query.filter(Registration.numero_competidor == normalized_phone).all()
+        resultados.extend(number_matches)
 
     if "@" in query_text:
         email_matches = (
@@ -785,7 +788,7 @@ def exportar_registros_por_evento_csv(
     writer = csv.writer(output, lineterminator="\r\n")
 
     writer.writerow([
-        "Folio",
+        "Registro",
         "Evento",
         "Fecha evento",
         "Nombre",
