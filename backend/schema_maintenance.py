@@ -17,6 +17,7 @@ REGISTRATION_COLUMNS = {
     "confirmed_at": "TIMESTAMP",
     "cancelled_at": "TIMESTAMP",
     "public_token": "VARCHAR(128)",
+    "confirmation_email_sent_at": "TIMESTAMP",
     "expires_at": "TIMESTAMP",
     "expired_at": "TIMESTAMP",
     "created_at": "TIMESTAMP",

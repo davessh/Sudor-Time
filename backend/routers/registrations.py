@@ -31,6 +31,7 @@ from schemas.registration import (
     RegistrationStatusUpdate,
 )
 from security import require_admin
+from services.confirmation_email import send_registration_confirmation_email
 from services.registration_helpers import calcular_edad, buscar_categoria_automatica
 
 router = APIRouter(prefix="/registrations", tags=["Registrations"])
@@ -39,6 +40,7 @@ ACTIVE_STOCK_STATUSES = {"pending_payment", "confirmed"}
 CLOSED_REGISTRATION_STATUSES = {"cancelled", "expired"}
 DEFAULT_REGISTRATION_EXPIRATION_HOURS = 48
 PUBLIC_TOKEN_BYTES = 32
+COMPETITOR_NUMBER_WIDTH = 3
 
 
 def _normalize_email(value: Optional[str]) -> Optional[str]:
@@ -67,6 +69,43 @@ def get_registration_expiration_hours() -> int:
 
 def get_registration_expiration_date() -> datetime:
     return datetime.now(timezone.utc) + timedelta(hours=get_registration_expiration_hours())
+
+
+def format_competitor_number(value: int) -> str:
+    return str(value).zfill(COMPETITOR_NUMBER_WIDTH)
+
+
+def _parse_competitor_number(value: Optional[str]) -> Optional[int]:
+    if not value:
+        return None
+    cleaned = value.strip()
+    if not cleaned.isdigit():
+        return None
+    return int(cleaned)
+
+
+def assign_competitor_number_if_needed(db: Session, registro: Registration) -> bool:
+    if registro.numero_competidor:
+        return False
+
+    db.query(Event).filter(Event.id == registro.event_id).with_for_update().first()
+    existing_numbers = (
+        db.query(Registration.numero_competidor)
+        .filter(
+            Registration.event_id == registro.event_id,
+            Registration.numero_competidor.isnot(None),
+        )
+        .all()
+    )
+
+    highest_number = 0
+    for (numero_competidor,) in existing_numbers:
+        parsed_number = _parse_competitor_number(numero_competidor)
+        if parsed_number and parsed_number > highest_number:
+            highest_number = parsed_number
+
+    registro.numero_competidor = format_competitor_number(highest_number + 1)
+    return True
 
 
 def generate_public_token(db: Session) -> str:
@@ -1024,6 +1063,7 @@ def actualizar_estado_registro(
         registro.paid_at = data.paid_at
 
     if new_status == "confirmed":
+        assign_competitor_number_if_needed(db, registro)
         registro.confirmed_at = now
         registro.expired_at = None
         if registro.payment_status == "unpaid":
@@ -1039,6 +1079,16 @@ def actualizar_estado_registro(
 
     db.commit()
     db.refresh(registro)
+
+    if previous_status != "confirmed" and registro.status == "confirmed" and not registro.confirmation_email_sent_at:
+        try:
+            if send_registration_confirmation_email(registro):
+                registro.confirmation_email_sent_at = datetime.now(timezone.utc)
+                db.commit()
+                db.refresh(registro)
+        except Exception as exc:
+            print(f"No se pudo enviar correo de confirmacion para registro {registro.id}: {exc}")
+
     return registro
 
 

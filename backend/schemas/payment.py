@@ -27,6 +27,7 @@ class RegistrationPaymentStatusResponse(BaseModel):
     modalidad_nombre: str
     producto_nombre: Optional[str] = None
     categoria_nombre: Optional[str] = None
+    numero_competidor: Optional[str] = None
     talla_playera: Optional[str] = None
     status: str
     payment_status: str
@@ -38,6 +39,7 @@ class RegistrationPaymentStatusResponse(BaseModel):
     payment_checkout_url: Optional[str]
     payment_status_detail: Optional[str]
     payment_expires_at: Optional[datetime]
+    confirmation_email_sent: bool = False
     paid_at: Optional[datetime]
     confirmed_at: Optional[datetime]
     expires_at: Optional[datetime]

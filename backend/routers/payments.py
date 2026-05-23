@@ -17,7 +17,12 @@ from schemas.payment import (
     MercadoPagoPreferenceResponse,
     RegistrationPaymentStatusResponse,
 )
-from routers.registrations import expire_registration_if_needed, get_public_registration_by_token
+from routers.registrations import (
+    assign_competitor_number_if_needed,
+    expire_registration_if_needed,
+    get_public_registration_by_token,
+)
+from services.confirmation_email import send_registration_confirmation_email
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -122,6 +127,7 @@ def _registration_payment_status(registration: Registration) -> RegistrationPaym
         modalidad_nombre=registration.modality.nombre if registration.modality else "Sin modalidad",
         producto_nombre=registration.product.nombre if registration.product else None,
         categoria_nombre=registration.category.nombre if registration.category else None,
+        numero_competidor=registration.numero_competidor,
         talla_playera=registration.talla_playera,
         status=registration.status,
         payment_status=registration.payment_status,
@@ -133,6 +139,7 @@ def _registration_payment_status(registration: Registration) -> RegistrationPaym
         payment_checkout_url=registration.payment_checkout_url,
         payment_status_detail=registration.payment_status_detail,
         payment_expires_at=registration.payment_expires_at,
+        confirmation_email_sent=bool(registration.confirmation_email_sent_at),
         paid_at=registration.paid_at,
         confirmed_at=registration.confirmed_at,
         expires_at=registration.expires_at,
@@ -273,7 +280,7 @@ def _build_preference_payload(registration: Registration, expires_at: datetime) 
     return payload
 
 
-def _apply_payment_to_registration(registration: Registration, payment: dict[str, Any]):
+def _apply_payment_to_registration(db: Session, registration: Registration, payment: dict[str, Any]):
     mp_status = payment.get("status")
     status_detail = payment.get("status_detail")
     registration_status, payment_status = PAYMENT_STATUS_MAP.get(
@@ -308,6 +315,7 @@ def _apply_payment_to_registration(registration: Registration, payment: dict[str
             return
 
         registration.status = "confirmed"
+        assign_competitor_number_if_needed(db, registration)
         registration.confirmed_at = paid_at
         return
 
@@ -418,8 +426,23 @@ async def webhook_mercadopago(
     if should_expire_before_apply:
         expire_registration_if_needed(db, registration)
 
-    _apply_payment_to_registration(registration, payment)
+    was_confirmed = registration.status == "confirmed"
+    _apply_payment_to_registration(db, registration, payment)
     db.commit()
+    db.refresh(registration)
+
+    should_send_confirmation = (
+        not was_confirmed
+        and registration.status == "confirmed"
+        and not registration.confirmation_email_sent_at
+    )
+    if should_send_confirmation:
+        try:
+            if send_registration_confirmation_email(registration):
+                registration.confirmation_email_sent_at = datetime.now(timezone.utc)
+                db.commit()
+        except Exception as exc:
+            print(f"No se pudo enviar correo de confirmacion para registro {registration.id}: {exc}")
 
     return {"status": "received"}
 
@@ -435,4 +458,7 @@ def obtener_estado_pago_registro(registration_id: int, db: Session = Depends(get
 @router.get("/registrations/access/{access_token}/status", response_model=RegistrationPaymentStatusResponse)
 def obtener_estado_pago_registro_por_token(access_token: str, db: Session = Depends(get_db)):
     registration = get_public_registration_by_token(db, access_token)
+    if registration.status == "confirmed" and assign_competitor_number_if_needed(db, registration):
+        db.commit()
+        db.refresh(registration)
     return _registration_payment_status(registration)

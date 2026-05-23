@@ -1,4 +1,4 @@
-import { CreditCard, RefreshCw, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, CreditCard, RefreshCw, ShieldCheck, Trophy } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { createMercadoPagoPreference, getRegistrationPaymentStatus } from '../api/payments'
@@ -19,6 +19,11 @@ function formatDateTime(value) {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
+}
+
+function formatRunnerNumber(value) {
+  if (!value) return 'Por asignar'
+  return String(value).padStart(3, '0')
 }
 
 const statusCopy = {
@@ -141,10 +146,34 @@ export default function PaymentPage() {
 
           {payment && (
             <>
-              <div className={`mt-6 rounded-xl border px-4 py-4 ${copy.tone}`}>
-                <p className="font-black">{copy.title}</p>
-                <p className="mt-1 text-sm leading-6">{copy.message}</p>
-              </div>
+              {payment.status === 'confirmed' ? (
+                <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-900">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <p className="mt-5 text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Inscripcion confirmada</p>
+                  <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+                    Felicidades, ya estas inscrito a {payment.event_nombre}
+                  </h2>
+                  <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-center gap-3 text-slate-500">
+                      <Trophy className="h-5 w-5 text-red-700" />
+                      <span className="text-sm font-bold uppercase tracking-[0.14em]">Tu numero de corredor</span>
+                    </div>
+                    <p className="mt-2 text-6xl font-black tracking-tight text-slate-950">{formatRunnerNumber(payment.numero_competidor)}</p>
+                  </div>
+                  <p className="mt-4 text-sm leading-6 text-emerald-800">
+                    {payment.confirmation_email_sent
+                      ? 'Te enviamos un correo de confirmacion con este numero y el resumen de tu inscripcion.'
+                      : 'Conserva esta pantalla como comprobante. Si no recibes correo, el equipo de SudorTime podra verificar tu registro con este numero.'}
+                  </p>
+                </div>
+              ) : (
+                <div className={`mt-6 rounded-xl border px-4 py-4 ${copy.tone}`}>
+                  <p className="font-black">{copy.title}</p>
+                  <p className="mt-1 text-sm leading-6">{copy.message}</p>
+                </div>
+              )}
 
               <div className="mt-6 rounded-2xl bg-slate-50 p-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -167,6 +196,7 @@ export default function PaymentPage() {
                 <div className="mt-4 space-y-3 text-sm">
                   <SummaryLine label="Evento" value={payment.event_nombre} />
                   <SummaryLine label="Corredor" value={payment.participante_nombre} />
+                  {payment.status === 'confirmed' && <SummaryLine label="Numero" value={formatRunnerNumber(payment.numero_competidor)} strong />}
                   <SummaryLine label="Modalidad" value={payment.modalidad_nombre} />
                   <SummaryLine label="Paquete" value={payment.producto_nombre || 'Sin paquete adicional'} />
                   <SummaryLine label="Categoria" value={payment.categoria_nombre || 'Por confirmar'} />
