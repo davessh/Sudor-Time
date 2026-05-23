@@ -9,7 +9,7 @@ from security import require_admin
 router = APIRouter(prefix="/participants", tags=["Participants"])
 
 
-@router.post("", response_model=ParticipantResponse)
+@router.post("", response_model=ParticipantResponse, dependencies=[Depends(require_admin)])
 def crear_participante(data: ParticipantCreate, db: Session = Depends(get_db)):
     nuevo = Participant(**data.model_dump())
     db.add(nuevo)

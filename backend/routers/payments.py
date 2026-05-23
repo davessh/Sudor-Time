@@ -17,7 +17,7 @@ from schemas.payment import (
     MercadoPagoPreferenceResponse,
     RegistrationPaymentStatusResponse,
 )
-from routers.registrations import get_public_registration_by_token
+from routers.registrations import expire_registration_if_needed, get_public_registration_by_token
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -71,6 +71,35 @@ def _access_token() -> str:
 
 def _to_money(value) -> Decimal:
     return Decimal(str(value or "0")).quantize(Decimal("0.01"))
+
+
+def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _parse_mp_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def _payment_expiration_for_registration(registration: Registration) -> datetime:
+    registration_expires_at = _as_utc(registration.expires_at)
+    if registration_expires_at:
+        return registration_expires_at
+    return datetime.now(timezone.utc) + timedelta(hours=48)
+
+
+def _paid_after_registration_expired(registration: Registration, paid_at: datetime) -> bool:
+    expires_at = _as_utc(registration.expires_at)
+    return bool(expires_at and paid_at > expires_at)
 
 
 def _registration_payment_status(registration: Registration) -> RegistrationPaymentStatusResponse:
@@ -256,23 +285,40 @@ def _apply_payment_to_registration(registration: Registration, payment: dict[str
     expected_amount = _to_money(registration.amount)
     currency = payment.get("currency_id") or registration.currency
 
+    registration.payment_provider = "mercado_pago"
+    registration.payment_id = str(payment.get("id") or "")
+    registration.payment_reference = str(payment.get("id") or "")
+    registration.payment_status_detail = status_detail
+
     if transaction_amount != expected_amount or currency != registration.currency:
         registration.payment_status = "failed"
         registration.payment_status_detail = "amount_or_currency_mismatch"
         return
 
-    registration.payment_provider = "mercado_pago"
-    registration.payment_id = str(payment.get("id") or "")
-    registration.payment_reference = str(payment.get("id") or "")
-    registration.payment_status_detail = status_detail
+    if payment_status == "paid":
+        paid_at = _parse_mp_datetime(payment.get("date_approved")) or datetime.now(timezone.utc)
+        registration.payment_status = "paid"
+        registration.paid_at = paid_at
+
+        if registration.status == "expired" or _paid_after_registration_expired(registration, paid_at):
+            registration.payment_status_detail = "paid_after_registration_expired"
+            if registration.status != "expired":
+                registration.status = "expired"
+                registration.expired_at = _as_utc(registration.expires_at) or paid_at
+            return
+
+        registration.status = "confirmed"
+        registration.confirmed_at = paid_at
+        return
+
+    if registration.status == "expired" and registration_status == "pending_payment":
+        registration.payment_status = payment_status
+        return
+
     registration.status = registration_status
     registration.payment_status = payment_status
 
-    if payment_status == "paid":
-        approved_at = payment.get("date_approved")
-        registration.paid_at = datetime.fromisoformat(approved_at.replace("Z", "+00:00")) if approved_at else datetime.now(timezone.utc)
-        registration.confirmed_at = registration.paid_at
-    elif registration_status == "cancelled":
+    if registration_status == "cancelled":
         registration.cancelled_at = datetime.now(timezone.utc)
 
 
@@ -300,7 +346,10 @@ async def crear_preferencia_mercadopago(
     if not registration.amount or _to_money(registration.amount) <= Decimal("0.00"):
         raise HTTPException(status_code=400, detail="La inscripción no tiene monto válido para pagar")
 
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=48)
+    expires_at = _payment_expiration_for_registration(registration)
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="La preinscripcion ya expiro")
+
     payload = _build_preference_payload(registration, expires_at)
     preference = await _mercadopago_request("POST", "/checkout/preferences", json=payload)
 
@@ -358,6 +407,16 @@ async def webhook_mercadopago(
     registration = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registration:
         return {"status": "ignored"}
+
+    paid_at = _parse_mp_datetime(payment.get("date_approved")) or datetime.now(timezone.utc)
+    expires_at = _as_utc(registration.expires_at)
+    should_expire_before_apply = (
+        payment.get("status") != "approved"
+        or bool(expires_at and paid_at > expires_at)
+    )
+
+    if should_expire_before_apply:
+        expire_registration_if_needed(db, registration)
 
     _apply_payment_to_registration(registration, payment)
     db.commit()

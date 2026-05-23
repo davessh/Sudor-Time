@@ -164,6 +164,8 @@ def _try_build_read_create(data: dict[str, Any]) -> Optional[RawReadCreate]:
 def _validate_ingest_token(x_rfid_token: Optional[str], data: dict[str, Any]):
     expected_token = os.getenv("RFID_INGEST_TOKEN")
     if not expected_token:
+        if os.getenv("RENDER") or os.getenv("ENVIRONMENT") == "production":
+            raise HTTPException(status_code=500, detail="Falta configurar RFID_INGEST_TOKEN")
         return
 
     received_token = x_rfid_token or _first_value(data, "token", "api_key", "rfid_token")
@@ -252,6 +254,9 @@ async def recibir_prueba_micro(
 
     parsed_read = _try_build_read_create(payload)
     if parsed_read:
+        if os.getenv("RENDER") or os.getenv("ENVIRONMENT") == "production":
+            raise HTTPException(status_code=403, detail="Usa /reads/ingest para guardar lecturas reales")
+
         lectura = guardar_lectura(parsed_read, db)
         return {
             "status": "guardado",
@@ -290,48 +295,6 @@ def listar_lecturas(
         query = query.filter(RawRead.checkpoint_id == checkpoint_id)
 
     return query.order_by(RawRead.timestamp.asc()).all()
-
-
-@router.get("/{read_id}", response_model=RawReadResponse, dependencies=[Depends(require_admin)])
-def obtener_lectura(read_id: int, db: Session = Depends(get_db)):
-    lectura = db.query(RawRead).filter(RawRead.id == read_id).first()
-    if not lectura:
-        raise HTTPException(status_code=404, detail="Lectura no encontrada")
-    return lectura
-
-
-@router.get("/{read_id}/detail", response_model=RawReadDetailResponse, dependencies=[Depends(require_admin)])
-def obtener_detalle_lectura(read_id: int, db: Session = Depends(get_db)):
-    lectura = db.query(RawRead).filter(RawRead.id == read_id).first()
-    if not lectura:
-        raise HTTPException(status_code=404, detail="Lectura no encontrada")
-
-    checkpoint_nombre = lectura.checkpoint.nombre if lectura.checkpoint else ""
-    numero_competidor = lectura.registration.numero_competidor if lectura.registration else None
-
-    participant_id = None
-    participante_nombre = None
-    participante_apellido_paterno = None
-
-    if lectura.registration and lectura.registration.participant:
-        participant_id = lectura.registration.participant.id
-        participante_nombre = lectura.registration.participant.nombre
-        participante_apellido_paterno = lectura.registration.participant.apellido_paterno
-
-    return RawReadDetailResponse(
-        id=lectura.id,
-        event_id=lectura.event_id,
-        checkpoint_id=lectura.checkpoint_id,
-        checkpoint_nombre=checkpoint_nombre,
-        tag_id=lectura.tag_id,
-        tag_code=lectura.tag_code,
-        registration_id=lectura.registration_id,
-        numero_competidor=numero_competidor,
-        participant_id=participant_id,
-        participante_nombre=participante_nombre,
-        participante_apellido_paterno=participante_apellido_paterno,
-        timestamp=lectura.timestamp,
-    )
 
 
 @router.get("/by-event/{event_id}", response_model=list[RawReadDetailResponse], dependencies=[Depends(require_admin)])
@@ -376,3 +339,46 @@ def listar_lecturas_por_evento(event_id: int, db: Session = Depends(get_db)):
         )
 
     return salida
+
+
+@router.get("/{read_id}", response_model=RawReadResponse, dependencies=[Depends(require_admin)])
+def obtener_lectura(read_id: int, db: Session = Depends(get_db)):
+    lectura = db.query(RawRead).filter(RawRead.id == read_id).first()
+    if not lectura:
+        raise HTTPException(status_code=404, detail="Lectura no encontrada")
+    return lectura
+
+
+@router.get("/{read_id}/detail", response_model=RawReadDetailResponse, dependencies=[Depends(require_admin)])
+def obtener_detalle_lectura(read_id: int, db: Session = Depends(get_db)):
+    lectura = db.query(RawRead).filter(RawRead.id == read_id).first()
+    if not lectura:
+        raise HTTPException(status_code=404, detail="Lectura no encontrada")
+
+    checkpoint_nombre = lectura.checkpoint.nombre if lectura.checkpoint else ""
+    numero_competidor = lectura.registration.numero_competidor if lectura.registration else None
+
+    participant_id = None
+    participante_nombre = None
+    participante_apellido_paterno = None
+
+    if lectura.registration and lectura.registration.participant:
+        participant_id = lectura.registration.participant.id
+        participante_nombre = lectura.registration.participant.nombre
+        participante_apellido_paterno = lectura.registration.participant.apellido_paterno
+
+    return RawReadDetailResponse(
+        id=lectura.id,
+        event_id=lectura.event_id,
+        checkpoint_id=lectura.checkpoint_id,
+        checkpoint_nombre=checkpoint_nombre,
+        tag_id=lectura.tag_id,
+        tag_code=lectura.tag_code,
+        registration_id=lectura.registration_id,
+        numero_competidor=numero_competidor,
+        participant_id=participant_id,
+        participante_nombre=participante_nombre,
+        participante_apellido_paterno=participante_apellido_paterno,
+        timestamp=lectura.timestamp,
+    )
+
