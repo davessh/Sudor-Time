@@ -12,7 +12,7 @@ export default function Hero() {
           </h1>
 
           <p className="mt-4 max-w-xl text-sm leading-6 text-slate-200 sm:text-base">
-            Inscribete con un enlace privado para retomar tu pago sin exponer tus datos en busquedas publicas.
+            Inscripciones en linea para eventos deportivos en Mexicali y la region.
           </p>
         </div>
 

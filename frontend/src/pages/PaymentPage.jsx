@@ -1,4 +1,4 @@
-import { Copy, CreditCard, RefreshCw, ShieldCheck } from 'lucide-react'
+import { CreditCard, RefreshCw, ShieldCheck } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { createMercadoPagoPreference, getRegistrationPaymentStatus } from '../api/payments'
@@ -62,7 +62,6 @@ export default function PaymentPage() {
   const [storedPending, setStoredPending] = useState(null)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -98,16 +97,6 @@ export default function PaymentPage() {
     } catch (err) {
       setError(err.message || 'No se pudo iniciar el pago')
       setPaying(false)
-    }
-  }
-
-  async function copyPrivateLink() {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2200)
-    } catch {
-      setError('No se pudo copiar el enlace. Puedes guardarlo desde la barra del navegador.')
     }
   }
 
@@ -172,19 +161,6 @@ export default function PaymentPage() {
                   </p>
                 )}
               </div>
-
-              {payment.status === 'pending_payment' && (
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
-                  <p className="eyebrow">Enlace privado</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Guarda este enlace para retomar tu pago o modificar tu preinscripcion mientras siga vigente.
-                  </p>
-                  <button type="button" onClick={copyPrivateLink} className="btn-secondary mt-4 w-full">
-                    <Copy className="mr-2 h-4 w-4" />
-                    {copied ? 'Enlace copiado' : 'Copiar enlace privado'}
-                  </button>
-                </div>
-              )}
 
               <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
                 <p className="eyebrow">Resumen de inscripcion</p>

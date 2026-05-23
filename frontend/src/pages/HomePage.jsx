@@ -7,15 +7,18 @@ import { getEvents } from '../api/events'
 export default function HomePage() {
   const [eventos, setEventos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     async function loadEvents() {
       try {
         setLoading(true)
+        setError('')
         const data = await getEvents()
         setEventos(data)
       } catch (error) {
         console.error('Error cargando los eventos:', error)
+        setError('No pudimos cargar los eventos. Intenta de nuevo en unos minutos.')
       } finally {
         setLoading(false)
       }
@@ -34,7 +37,7 @@ export default function HomePage() {
             <p className="eyebrow">Calendario</p>
             <h2 className="section-title mt-2">Próximos eventos</h2>
           </div>
-          {!loading && (
+          {!loading && !error && (
             <span className="chip w-fit">
               {eventos.length} {eventos.length === 1 ? 'evento disponible' : 'eventos disponibles'}
             </span>
@@ -44,6 +47,10 @@ export default function HomePage() {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {loading ? (
             [1, 2, 3].map((n) => <EventSkeleton key={n} />)
+          ) : error ? (
+            <div className="panel panel-pad sm:col-span-2 lg:col-span-3">
+              <p className="font-semibold text-slate-700">{error}</p>
+            </div>
           ) : eventos.length ? (
             eventos.map((evento) => <EventCard key={evento.id} evento={evento} />)
           ) : (
