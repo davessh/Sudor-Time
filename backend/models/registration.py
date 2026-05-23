@@ -32,6 +32,7 @@ class Registration(Base):
     paid_at = Column(DateTime(timezone=True), nullable=True)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    public_token = Column(String(128), nullable=True, unique=True, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     expired_at = Column(DateTime(timezone=True), nullable=True)
 

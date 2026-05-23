@@ -15,17 +15,11 @@ export function createPublicRegistration(payload) {
   })
 }
 
-export function updatePublicRegistration(registrationId, payload) {
-  return apiRequest(`/registrations/public/${registrationId}`, {
+export function updatePublicRegistration(accessToken, payload) {
+  return apiRequest(`/registrations/public/${accessToken}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
-}
-
-export function searchPublicRegistrations(query, eventId = '') {
-  const params = new URLSearchParams({ q: query })
-  if (eventId) params.set('event_id', eventId)
-  return apiRequest(`/registrations/public/search?${params.toString()}`)
 }
 
 export function updateRegistration(registrationId, payload) {

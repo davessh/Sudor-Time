@@ -16,6 +16,7 @@ REGISTRATION_COLUMNS = {
     "paid_at": "TIMESTAMP",
     "confirmed_at": "TIMESTAMP",
     "cancelled_at": "TIMESTAMP",
+    "public_token": "VARCHAR(128)",
     "expires_at": "TIMESTAMP",
     "expired_at": "TIMESTAMP",
     "created_at": "TIMESTAMP",

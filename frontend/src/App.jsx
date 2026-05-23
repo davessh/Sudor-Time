@@ -29,7 +29,7 @@ export default function App() {
       <Route path="/evento/:id/resultados" element={<ResultsPage />} />
       <Route path="/evento/:id/inscripcion" element={<RegistrationPage />} />
       <Route path="/consultar-inscripcion" element={<RegistrationLookupPage />} />
-      <Route path="/inscripcion/:registrationId/pago" element={<PaymentPage />} />
+      <Route path="/inscripcion/:accessToken/pago" element={<PaymentPage />} />
       <Route path="/corredor/:id" element={<RunnerDetailPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin" element={adminPage(<AdminDashboard />)} />

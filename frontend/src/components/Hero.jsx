@@ -1,6 +1,3 @@
-import { Search } from 'lucide-react'
-import { Link } from 'react-router-dom'
-
 export default function Hero() {
   return (
     <section className="relative overflow-hidden bg-slate-950 text-white">
@@ -14,12 +11,9 @@ export default function Hero() {
             Encuentra tu proxima carrera
           </h1>
 
-          <div className="mt-5 flex justify-center lg:justify-start">
-            <Link to="/consultar-inscripcion" className="btn-secondary border-white/20 bg-white/10 text-white hover:bg-white hover:text-slate-950">
-              <Search className="mr-2 h-4 w-4" />
-              Consultar inscripcion
-            </Link>
-          </div>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-200 sm:text-base">
+            Inscribete con un enlace privado para retomar tu pago sin exponer tus datos en busquedas publicas.
+          </p>
         </div>
 
         <div className="order-1 flex justify-center lg:order-2 lg:justify-end">

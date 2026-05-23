@@ -17,7 +17,7 @@ from schemas.payment import (
     MercadoPagoPreferenceResponse,
     RegistrationPaymentStatusResponse,
 )
-from routers.registrations import expire_registration_if_needed
+from routers.registrations import get_public_registration_by_token
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -205,9 +205,10 @@ def _build_preference_payload(registration: Registration, expires_at: datetime) 
         payer["surname"] = " ".join(
             part for part in [participant.apellido_paterno, participant.apellido_materno] if part
         )
-    success_url = _frontend_url(f"inscripcion/{registration.id}/pago?status=success")
-    failure_url = _frontend_url(f"inscripcion/{registration.id}/pago?status=failure")
-    pending_url = _frontend_url(f"inscripcion/{registration.id}/pago?status=pending")
+    access_token = registration.public_token or ""
+    success_url = _frontend_url(f"inscripcion/{access_token}/pago?status=success")
+    failure_url = _frontend_url(f"inscripcion/{access_token}/pago?status=failure")
+    pending_url = _frontend_url(f"inscripcion/{access_token}/pago?status=pending")
 
     payload = {
         "items": [
@@ -280,13 +281,7 @@ async def crear_preferencia_mercadopago(
     data: MercadoPagoPreferenceCreate,
     db: Session = Depends(get_db),
 ):
-    registration = db.query(Registration).filter(Registration.id == data.registration_id).first()
-    if not registration:
-        raise HTTPException(status_code=404, detail="Inscripción no encontrada")
-
-    if expire_registration_if_needed(db, registration):
-        db.commit()
-        db.refresh(registration)
+    registration = get_public_registration_by_token(db, data.access_token)
 
     if registration.status not in {"pending_payment", "confirmed"}:
         raise HTTPException(status_code=400, detail="La inscripción no está disponible para pago")
@@ -372,12 +367,13 @@ async def webhook_mercadopago(
 
 @router.get("/registrations/{registration_id}/status", response_model=RegistrationPaymentStatusResponse)
 def obtener_estado_pago_registro(registration_id: int, db: Session = Depends(get_db)):
-    registration = db.query(Registration).filter(Registration.id == registration_id).first()
-    if not registration:
-        raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+    raise HTTPException(
+        status_code=410,
+        detail="La consulta publica por numero de registro fue deshabilitada. Usa el enlace privado de tu preinscripcion.",
+    )
 
-    if expire_registration_if_needed(db, registration):
-        db.commit()
-        db.refresh(registration)
 
+@router.get("/registrations/access/{access_token}/status", response_model=RegistrationPaymentStatusResponse)
+def obtener_estado_pago_registro_por_token(access_token: str, db: Session = Depends(get_db)):
+    registration = get_public_registration_by_token(db, access_token)
     return _registration_payment_status(registration)

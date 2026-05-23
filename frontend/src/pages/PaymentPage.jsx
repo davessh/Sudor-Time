@@ -1,4 +1,4 @@
-import { CreditCard, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Copy, CreditCard, RefreshCw, ShieldCheck } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { createMercadoPagoPreference, getRegistrationPaymentStatus } from '../api/payments'
@@ -44,10 +44,10 @@ const statusCopy = {
   },
 }
 
-function getStoredPendingRegistration(registrationId) {
+function getStoredPendingRegistration(accessToken) {
   try {
     const stored = JSON.parse(localStorage.getItem('sudortime_pending_registration') || 'null')
-    if (!stored || String(stored.registration_id) !== String(registrationId)) return null
+    if (!stored || stored.access_token !== accessToken) return null
     return stored
   } catch {
     return null
@@ -55,27 +55,28 @@ function getStoredPendingRegistration(registrationId) {
 }
 
 export default function PaymentPage() {
-  const { registrationId } = useParams()
+  const { accessToken } = useParams()
   const [searchParams] = useSearchParams()
   const returnStatus = searchParams.get('status')
   const [payment, setPayment] = useState(null)
   const [storedPending, setStoredPending] = useState(null)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     loadStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registrationId])
+  }, [accessToken])
 
   async function loadStatus() {
     try {
       setLoading(true)
       setError('')
-      const data = await getRegistrationPaymentStatus(registrationId)
+      const data = await getRegistrationPaymentStatus(accessToken)
       setPayment(data)
-      const stored = getStoredPendingRegistration(registrationId)
+      const stored = getStoredPendingRegistration(accessToken)
       setStoredPending(stored)
       if (stored && ['confirmed', 'cancelled', 'expired'].includes(data.status)) {
         localStorage.removeItem('sudortime_pending_registration')
@@ -92,11 +93,21 @@ export default function PaymentPage() {
     try {
       setPaying(true)
       setError('')
-      const preference = await createMercadoPagoPreference(registrationId)
+      const preference = await createMercadoPagoPreference(accessToken)
       window.location.href = preference.checkout_url
     } catch (err) {
       setError(err.message || 'No se pudo iniciar el pago')
       setPaying(false)
+    }
+  }
+
+  async function copyPrivateLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2200)
+    } catch {
+      setError('No se pudo copiar el enlace. Puedes guardarlo desde la barra del navegador.')
     }
   }
 
@@ -162,6 +173,19 @@ export default function PaymentPage() {
                 )}
               </div>
 
+              {payment.status === 'pending_payment' && (
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+                  <p className="eyebrow">Enlace privado</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Guarda este enlace para retomar tu pago o modificar tu preinscripcion mientras siga vigente.
+                  </p>
+                  <button type="button" onClick={copyPrivateLink} className="btn-secondary mt-4 w-full">
+                    <Copy className="mr-2 h-4 w-4" />
+                    {copied ? 'Enlace copiado' : 'Copiar enlace privado'}
+                  </button>
+                </div>
+              )}
+
               <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
                 <p className="eyebrow">Resumen de inscripcion</p>
                 <div className="mt-4 space-y-3 text-sm">
@@ -181,7 +205,7 @@ export default function PaymentPage() {
               )}
 
               {payment.status === 'pending_payment' && storedPending && (
-                <Link to={`/evento/${payment.event_id}/inscripcion?registrationId=${payment.registration_id}`} className="btn-secondary mt-3 w-full">
+                <Link to={`/evento/${payment.event_id}/inscripcion?token=${accessToken}`} className="btn-secondary mt-3 w-full">
                   Modificar preinscripcion
                 </Link>
               )}

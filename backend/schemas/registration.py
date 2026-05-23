@@ -81,6 +81,7 @@ class RegistrationResponse(BaseModel):
     paid_at: Optional[datetime]
     confirmed_at: Optional[datetime]
     cancelled_at: Optional[datetime]
+    public_token: Optional[str]
     expires_at: Optional[datetime]
     expired_at: Optional[datetime]
 

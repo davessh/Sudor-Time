@@ -64,11 +64,11 @@ const emptyForm = {
 
 const PENDING_REGISTRATION_KEY = 'sudortime_pending_registration'
 
-function getStoredPendingRegistration(eventId, registrationId = '') {
+function getStoredPendingRegistration(eventId, accessToken = '') {
   try {
     const stored = JSON.parse(localStorage.getItem(PENDING_REGISTRATION_KEY) || 'null')
     if (!stored || String(stored.event_id) !== String(eventId)) return null
-    if (registrationId && String(stored.registration_id) !== String(registrationId)) return null
+    if (accessToken && stored.access_token !== accessToken) return null
     return stored
   } catch {
     return null
@@ -84,7 +84,7 @@ export default function RegistrationPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const selectedModalityParam = searchParams.get('modalidad')
-  const editRegistrationId = searchParams.get('registrationId')
+  const editAccessToken = searchParams.get('token')
   const [setup, setSetup] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
@@ -112,7 +112,7 @@ export default function RegistrationPage() {
   useEffect(() => {
     if (!setup) return
 
-    const stored = getStoredPendingRegistration(id, editRegistrationId || '')
+    const stored = getStoredPendingRegistration(id, editAccessToken || '')
     if (stored?.formData) {
       setFormData(stored.formData)
       return
@@ -121,7 +121,7 @@ export default function RegistrationPage() {
     if (selectedModalityParam && (setup.modalities || []).some((item) => String(item.id) === String(selectedModalityParam))) {
       setFormData((prev) => ({ ...prev, modality_id: selectedModalityParam, product_id: '' }))
     }
-  }, [setup, id, editRegistrationId, selectedModalityParam])
+  }, [setup, id, editAccessToken, selectedModalityParam])
 
   const edad = useMemo(() => calcularEdad(formData.fechaNacimiento, setup?.fecha), [formData.fechaNacimiento, setup?.fecha])
 
@@ -222,20 +222,21 @@ export default function RegistrationPage() {
         },
       }
 
-      const registro = editRegistrationId
-        ? await updatePublicRegistration(editRegistrationId, payload)
+      const registro = editAccessToken
+        ? await updatePublicRegistration(editAccessToken, payload)
         : await createPublicRegistration(payload)
 
       setSuccess('Preinscripción recibida. Tu lugar queda pendiente hasta completar el pago correspondiente.')
       saveStoredPendingRegistration({
         event_id: Number(id),
         registration_id: registro.id,
+        access_token: registro.public_token,
         formData,
         updated_at: new Date().toISOString(),
       })
 
-      navigate(`/inscripcion/${registro.id}/pago`)
-      if (!editRegistrationId) setFormData(emptyForm)
+      navigate(`/inscripcion/${registro.public_token}/pago`)
+      if (!editAccessToken) setFormData(emptyForm)
     } catch (err) {
       setError(err.message || 'No se pudo completar la inscripción')
     } finally {
@@ -434,7 +435,7 @@ export default function RegistrationPage() {
           </div>
 
           <button type="submit" form="registration-form" disabled={!formularioValido || sending} className="btn-primary w-full">
-            {sending ? 'Registrando...' : editRegistrationId ? 'Actualizar preinscripcion' : 'Crear preinscripcion'}
+            {sending ? 'Registrando...' : editAccessToken ? 'Actualizar preinscripcion' : 'Crear preinscripcion'}
           </button>
         </aside>
       </main>

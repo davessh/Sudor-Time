@@ -1,6 +1,7 @@
 import csv
 import io
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
@@ -37,6 +38,7 @@ router = APIRouter(prefix="/registrations", tags=["Registrations"])
 ACTIVE_STOCK_STATUSES = {"pending_payment", "confirmed"}
 CLOSED_REGISTRATION_STATUSES = {"cancelled", "expired"}
 DEFAULT_REGISTRATION_EXPIRATION_HOURS = 48
+PUBLIC_TOKEN_BYTES = 32
 
 
 def _normalize_email(value: Optional[str]) -> Optional[str]:
@@ -65,6 +67,30 @@ def get_registration_expiration_hours() -> int:
 
 def get_registration_expiration_date() -> datetime:
     return datetime.now(timezone.utc) + timedelta(hours=get_registration_expiration_hours())
+
+
+def generate_public_token(db: Session) -> str:
+    while True:
+        token = secrets.token_urlsafe(PUBLIC_TOKEN_BYTES)
+        exists = db.query(Registration.id).filter(Registration.public_token == token).first()
+        if not exists:
+            return token
+
+
+def get_public_registration_by_token(db: Session, access_token: str) -> Registration:
+    token = (access_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=404, detail="Enlace de inscripcion no valido")
+
+    registro = db.query(Registration).filter(Registration.public_token == token).first()
+    if not registro:
+        raise HTTPException(status_code=404, detail="Enlace de inscripcion no valido")
+
+    if expire_registration_if_needed(db, registro):
+        db.commit()
+        db.refresh(registro)
+
+    return registro
 
 
 def expire_registration_if_needed(db: Session, registro: Registration, now: Optional[datetime] = None) -> bool:
@@ -483,6 +509,7 @@ def crear_registro_en_db(data: RegistrationCreate, db: Session) -> Registration:
         payment_status="unpaid",
         amount=calcular_monto_inscripcion(modalidad, producto),
         currency="MXN",
+        public_token=generate_public_token(db),
         expires_at=get_registration_expiration_date(),
     )
 
@@ -543,19 +570,13 @@ def crear_registro_publico(data: RegistrationPublicCreate, db: Session = Depends
     return crear_registro_en_db(registration_data, db)
 
 
-@router.put("/public/{registration_id}", response_model=RegistrationResponse)
+@router.put("/public/{access_token}", response_model=RegistrationResponse)
 def actualizar_registro_publico(
-    registration_id: int,
+    access_token: str,
     data: RegistrationPublicCreate,
     db: Session = Depends(get_db),
 ):
-    registro = db.query(Registration).filter(Registration.id == registration_id).first()
-    if not registro:
-        raise HTTPException(status_code=404, detail="Preinscripcion no encontrada")
-
-    if expire_registration_if_needed(db, registro):
-        db.commit()
-        db.refresh(registro)
+    registro = get_public_registration_by_token(db, access_token)
 
     if registro.status != "pending_payment" or registro.payment_status == "paid":
         raise HTTPException(status_code=400, detail="Solo puedes editar preinscripciones pendientes de pago")
@@ -589,7 +610,7 @@ def actualizar_registro_publico(
         db,
         data.event_id,
         participante,
-        exclude_registration_id=registration_id,
+        exclude_registration_id=registro.id,
     )
 
     nueva_talla = talla.talla if talla else None
@@ -620,6 +641,11 @@ def buscar_registro_publico(
     event_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
+    raise HTTPException(
+        status_code=410,
+        detail="La consulta publica por datos personales fue deshabilitada. Usa el enlace privado de tu preinscripcion.",
+    )
+
     query_text = " ".join(q.strip().split())
     normalized_phone = _normalize_phone(query_text)
 

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class MercadoPagoPreferenceCreate(BaseModel):
-    registration_id: int
+    access_token: str
 
 
 class MercadoPagoPreferenceResponse(BaseModel):

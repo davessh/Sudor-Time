@@ -97,7 +97,8 @@ export default function AdminDashboard() {
   )
 }
 
-function AdminShortcut({ icon: Icon, title, description, to }) {
+function AdminShortcut({ icon, title, description, to }) {
+  const Icon = icon
   return (
     <div className="panel panel-pad">
       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700">

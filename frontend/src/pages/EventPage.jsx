@@ -220,14 +220,14 @@ export default function EventPage() {
               </p>
 
               <div className="mt-6 grid gap-3">
-                {pendingRegistration && (
+                {pendingRegistration?.access_token && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
                     <p>Tienes una preinscripcion pendiente en este dispositivo.</p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      <Link to={`/inscripcion/${pendingRegistration.registration_id}/pago`} className="btn-secondary bg-white">
+                      <Link to={`/inscripcion/${pendingRegistration.access_token}/pago`} className="btn-secondary bg-white">
                         Continuar pago
                       </Link>
-                      <Link to={`/evento/${evento.id}/inscripcion?registrationId=${pendingRegistration.registration_id}`} className="btn-secondary bg-white">
+                      <Link to={`/evento/${evento.id}/inscripcion?token=${pendingRegistration.access_token}`} className="btn-secondary bg-white">
                         Modificar
                       </Link>
                     </div>
@@ -235,9 +235,6 @@ export default function EventPage() {
                 )}
                 <Link to={`/evento/${evento.id}/inscripcion`} className="btn-primary w-full">
                   Inscribirme
-                </Link>
-                <Link to="/consultar-inscripcion" className="btn-secondary w-full">
-                  Consultar inscripcion
                 </Link>
                 <Link to={`/evento/${evento.id}/resultados`} className="btn-secondary w-full">
                   Ver resultados
@@ -257,7 +254,8 @@ export default function EventPage() {
   )
 }
 
-function EventMeta({ icon: Icon, label, value }) {
+function EventMeta({ icon, label, value }) {
+  const Icon = icon
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-start gap-3">
