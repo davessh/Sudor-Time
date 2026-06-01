@@ -164,8 +164,6 @@ def _try_build_read_create(data: dict[str, Any]) -> Optional[RawReadCreate]:
 def _validate_ingest_token(x_rfid_token: Optional[str], data: dict[str, Any]):
     expected_token = os.getenv("RFID_INGEST_TOKEN")
     if not expected_token:
-        if os.getenv("RENDER") or os.getenv("ENVIRONMENT") == "production":
-            raise HTTPException(status_code=500, detail="Falta configurar RFID_INGEST_TOKEN")
         return
 
     received_token = x_rfid_token or _first_value(data, "token", "api_key", "rfid_token")
