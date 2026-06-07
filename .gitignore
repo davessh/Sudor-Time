@@ -17,6 +17,7 @@ build/
 
 # Logs
 *.log
+rfid-proxy/data/
 
 # Sistema/editor
 .vscode/
