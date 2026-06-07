@@ -18,8 +18,8 @@ const PENDING_LOG = path.join(DATA_DIR, "pending.ndjson");
 let retryInProgress = false;
 
 app.use(express.urlencoded({ extended: false }));
-app.use(express.text({ type: ["text/*", "application/octet-stream"] }));
 app.use(express.json({ type: "application/json" }));
+app.use(express.text({ type: () => true }));
 
 function normalizePayload(req) {
   const queryPayload = new URLSearchParams(req.query).toString();
@@ -138,13 +138,19 @@ async function handleRfidRequest(req, res) {
 
   console.log(JSON.stringify(receivedEntry));
 
-  if (!payload) {
-    res.status(400).send("FALTA_PAYLOAD");
-    return;
-  }
-
   try {
     await appendJsonLine(RECEIVED_LOG, receivedEntry);
+
+    if (!payload) {
+      console.log(
+        JSON.stringify({
+          time: new Date().toISOString(),
+          message: "Solicitud recibida sin payload. Se responde 200 OK para prueba de comunicacion.",
+        })
+      );
+      res.status(200).send("200 OK");
+      return;
+    }
 
     const renderResponse = await forwardToRender(payload);
 
