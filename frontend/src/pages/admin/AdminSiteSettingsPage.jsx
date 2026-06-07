@@ -8,6 +8,10 @@ const defaultSettings = {
   hero_color_start: '#15070A',
   hero_color_mid: '#6A1A24',
   hero_color_end: '#090D18',
+  hero_background_fit: 'cover',
+  hero_background_position_x: 50,
+  hero_background_position_y: 46,
+  hero_background_opacity: 46,
 }
 
 export default function AdminSiteSettingsPage() {
@@ -62,6 +66,10 @@ export default function AdminSiteSettingsPage() {
         hero_color_start: settings.hero_color_start,
         hero_color_mid: settings.hero_color_mid,
         hero_color_end: settings.hero_color_end,
+        hero_background_fit: settings.hero_background_fit,
+        hero_background_position_x: Number(settings.hero_background_position_x),
+        hero_background_position_y: Number(settings.hero_background_position_y),
+        hero_background_opacity: Number(settings.hero_background_opacity),
       })
       setSettings({ ...defaultSettings, ...data })
       showSuccess('Ajustes del hero guardados.')
@@ -134,6 +142,36 @@ export default function AdminSiteSettingsPage() {
                   className={inputClass()}
                 />
               </Field>
+              <Field label="Modo de imagen">
+                <select name="hero_background_fit" value={settings.hero_background_fit} onChange={handleChange} className={inputClass()}>
+                  <option value="cover">Cubrir todo el hero</option>
+                  <option value="contain">Ver foto completa</option>
+                </select>
+              </Field>
+              <RangeField
+                label="Mover horizontal"
+                name="hero_background_position_x"
+                value={settings.hero_background_position_x}
+                minLabel="Izquierda"
+                maxLabel="Derecha"
+                onChange={handleChange}
+              />
+              <RangeField
+                label="Mover vertical"
+                name="hero_background_position_y"
+                value={settings.hero_background_position_y}
+                minLabel="Arriba"
+                maxLabel="Abajo"
+                onChange={handleChange}
+              />
+              <RangeField
+                label="Visibilidad de la foto"
+                name="hero_background_opacity"
+                value={settings.hero_background_opacity}
+                minLabel="Sutil"
+                maxLabel="Fuerte"
+                onChange={handleChange}
+              />
 
               <button disabled={saving === 'colors'} className="w-full rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
                 {saving === 'colors' ? 'Guardando...' : 'Guardar ajustes'}
@@ -150,11 +188,17 @@ export default function AdminSiteSettingsPage() {
             </div>
 
             {settings.hero_background_image ? (
-              <img
-                src={getApiAssetUrl(settings.hero_background_image)}
-                alt="Fondo actual del inicio"
-                className="h-56 w-full rounded-2xl border border-slate-200 object-cover"
-              />
+              <div className="relative h-56 overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
+                <div
+                  className="absolute inset-0 bg-no-repeat"
+                  style={{
+                    backgroundImage: `url("${getApiAssetUrl(settings.hero_background_image)}")`,
+                    backgroundPosition: `${settings.hero_background_position_x}% ${settings.hero_background_position_y}%`,
+                    backgroundSize: settings.hero_background_fit,
+                    opacity: Number(settings.hero_background_opacity) / 100,
+                  }}
+                />
+              </div>
             ) : (
               <div className="flex h-56 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
                 Sin fondo personalizado. Se usará la imagen por defecto.
@@ -195,6 +239,26 @@ function ColorInput({ name, value, onChange }) {
       <input type="color" name={name} value={value} onChange={onChange} className="h-12 w-full rounded-xl border border-slate-300 bg-white p-1" />
       <input name={name} value={value} onChange={onChange} className={inputClass()} />
     </div>
+  )
+}
+
+function RangeField({ label, name, value, minLabel, maxLabel, onChange }) {
+  return (
+    <Field label={`${label}: ${value}%`}>
+      <input
+        type="range"
+        name={name}
+        min="0"
+        max="100"
+        value={value}
+        onChange={onChange}
+        className="w-full accent-[#6A1A24]"
+      />
+      <div className="mt-1 flex justify-between text-xs font-semibold text-slate-500">
+        <span>{minLabel}</span>
+        <span>{maxLabel}</span>
+      </div>
+    </Field>
   )
 }
 

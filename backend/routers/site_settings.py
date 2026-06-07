@@ -51,7 +51,11 @@ def obtener_ajustes_sitio(db: Session = Depends(get_db)):
 def actualizar_ajustes_sitio(data: SiteSettingsUpdate, db: Session = Depends(get_db)):
     settings = _get_or_create_settings(db)
     for key, value in data.model_dump(exclude_unset=True).items():
-      setattr(settings, key, value)
+        if key == "hero_background_fit" and value not in {"cover", "contain"}:
+            raise HTTPException(status_code=400, detail="El modo de fondo debe ser cover o contain")
+        if key in {"hero_background_position_x", "hero_background_position_y", "hero_background_opacity"} and value is not None:
+            value = max(0, min(100, int(value)))
+        setattr(settings, key, value)
 
     db.commit()
     db.refresh(settings)

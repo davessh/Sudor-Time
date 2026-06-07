@@ -62,7 +62,7 @@ function toggleValue(values, value) {
 
 export default function HomePage() {
   const [eventos, setEventos] = useState([])
-  const [siteSettings, setSiteSettings] = useState(null)
+  const [siteSettings, setSiteSettings] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState({

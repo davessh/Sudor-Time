@@ -43,6 +43,10 @@ SITE_SETTINGS_COLUMNS = {
     "hero_color_start": "VARCHAR(20) DEFAULT '#15070A' NOT NULL",
     "hero_color_mid": "VARCHAR(20) DEFAULT '#6A1A24' NOT NULL",
     "hero_color_end": "VARCHAR(20) DEFAULT '#090D18' NOT NULL",
+    "hero_background_fit": "VARCHAR(20) DEFAULT 'cover' NOT NULL",
+    "hero_background_position_x": "INTEGER DEFAULT 50 NOT NULL",
+    "hero_background_position_y": "INTEGER DEFAULT 46 NOT NULL",
+    "hero_background_opacity": "INTEGER DEFAULT 46 NOT NULL",
 }
 
 

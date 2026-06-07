@@ -22,12 +22,19 @@ export default function Hero({
 }) {
   const selectedDistance = filters.distances.length === 1 ? filters.distances[0] : ''
   const selectedMonth = filters.months.length === 1 ? filters.months[0] : ''
+  const settingsLoaded = siteSettings !== undefined
   const heroImageSrc = siteSettings?.hero_background_image
     ? getApiAssetUrl(siteSettings.hero_background_image)
-    : DEFAULT_HERO_IMAGE
+    : settingsLoaded
+      ? DEFAULT_HERO_IMAGE
+      : ''
   const heroColorStart = siteSettings?.hero_color_start || '#15070A'
   const heroColorMid = siteSettings?.hero_color_mid || '#6A1A24'
   const heroColorEnd = siteSettings?.hero_color_end || '#090D18'
+  const heroBackgroundFit = siteSettings?.hero_background_fit || 'cover'
+  const heroPositionX = Number(siteSettings?.hero_background_position_x ?? 50)
+  const heroPositionY = Number(siteSettings?.hero_background_position_y ?? 46)
+  const heroOpacity = Number(siteSettings?.hero_background_opacity ?? 46) / 100
 
   return (
     <section className="relative overflow-hidden bg-[#15070a] text-white">
@@ -36,14 +43,18 @@ export default function Hero({
         style={{ background: `linear-gradient(120deg, ${heroColorStart}, ${heroColorMid} 48%, ${heroColorEnd})` }}
         aria-hidden="true"
       />
-      <div
-        className="absolute inset-0 bg-cover opacity-[0.46]"
-        style={{
-          backgroundImage: `url("${heroImageSrc}")`,
-          backgroundPosition: 'center 46%',
-        }}
-        aria-hidden="true"
-      />
+      {heroImageSrc && (
+        <div
+          className="absolute inset-0 bg-no-repeat"
+          style={{
+            backgroundImage: `url("${heroImageSrc}")`,
+            backgroundPosition: `${heroPositionX}% ${heroPositionY}%`,
+            backgroundSize: heroBackgroundFit,
+            opacity: heroOpacity,
+          }}
+          aria-hidden="true"
+        />
+      )}
       <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(21,7,10,0.58),rgba(106,26,36,0.30)_48%,rgba(9,13,24,0.62))]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.16)_58%,rgba(0,0,0,0.42)_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.06)_0_1px,transparent_1px_18px)] opacity-20" />
