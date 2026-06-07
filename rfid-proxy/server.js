@@ -22,15 +22,16 @@ app.use(express.text({ type: ["text/*", "application/octet-stream"] }));
 app.use(express.json({ type: "application/json" }));
 
 function normalizePayload(req) {
-  if (typeof req.body === "string") {
+  const queryPayload = new URLSearchParams(req.query).toString();
+
+  if (typeof req.body === "string" && req.body.trim()) {
     return req.body.trim();
   }
 
-  if (req.body && typeof req.body === "object") {
+  if (req.body && typeof req.body === "object" && Object.keys(req.body).length > 0) {
     return new URLSearchParams(req.body).toString();
   }
 
-  const queryPayload = new URLSearchParams(req.query).toString();
   return queryPayload;
 }
 
@@ -125,7 +126,7 @@ app.get("/", (req, res) => {
   res.status(200).send("SudorTime RFID proxy OK");
 });
 
-app.all("/rfid", async (req, res) => {
+async function handleRfidRequest(req, res) {
   const payload = normalizePayload(req);
   const receivedEntry = {
     time: new Date().toISOString(),
@@ -171,7 +172,9 @@ app.all("/rfid", async (req, res) => {
     await savePending(payload, error.message);
     res.status(200).send("OK");
   }
-});
+}
+
+app.all(["/rfid", "/pruebaMicro", "/reads/pruebaMicro"], handleRfidRequest);
 
 app.listen(PORT, () => {
   console.log(`SudorTime RFID proxy escuchando en puerto ${PORT}`);
