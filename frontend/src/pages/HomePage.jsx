@@ -114,6 +114,8 @@ export default function HomePage() {
     return [...new Set([...BASE_DISTANCES, ...distances])]
   }, [eventos])
 
+  const heroImage = useMemo(() => eventos.find((evento) => evento.imagen_hero)?.imagen_hero || '', [eventos])
+
   const filteredEventos = useMemo(() => {
     const query = normalizeText(filters.query)
 
@@ -153,6 +155,7 @@ export default function HomePage() {
         filters={filters}
         distanceOptions={distanceOptions}
         monthOptions={monthOptions}
+        heroImage={heroImage}
         onQueryChange={(value) => updateFilter('query', value)}
         onDistanceChange={(value) => updateFilter('distances', value ? [value] : [])}
         onMonthChange={(value) => updateFilter('months', value ? [value] : [])}

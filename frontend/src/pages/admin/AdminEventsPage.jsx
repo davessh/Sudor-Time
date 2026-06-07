@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getApiAssetUrl } from '../../api/client'
-import { getEvents, createEvent, uploadEventConvocatoria, uploadEventPortada } from '../../api/events'
+import { getEvents, createEvent, uploadEventConvocatoria, uploadEventHero, uploadEventPortada } from '../../api/events'
 
 const emptyForm = {
   nombre: '',
@@ -13,6 +13,7 @@ const emptyForm = {
   hora_salida: '',
   organizador: '',
   inscripciones_abiertas: true,
+  imagen_hero: '',
   imagen_portada: '',
   imagen_convocatoria: '',
 }
@@ -25,6 +26,7 @@ export default function AdminEventsPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState(emptyForm)
+  const [heroFile, setHeroFile] = useState(null)
   const [coverFile, setCoverFile] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
@@ -72,9 +74,20 @@ export default function AdminEventsPage() {
         hora_salida: formData.hora_salida || null,
         organizador: formData.organizador.trim() || null,
         inscripciones_abiertas: formData.inscripciones_abiertas,
+        imagen_hero: formData.imagen_hero.trim() || null,
         imagen_portada: formData.imagen_portada.trim() || null,
         imagen_convocatoria: formData.imagen_convocatoria.trim() || null,
       })
+
+      if (heroFile) {
+        try {
+          await uploadEventHero(eventoCreado.id, heroFile)
+        } catch (uploadError) {
+          await loadEvents()
+          setError(`El evento se creó, pero no se pudo subir el fondo del inicio: ${uploadError.message || 'error desconocido'}. Entra a Configurar para volver a subirlo.`)
+          return
+        }
+      }
 
       if (coverFile) {
         try {
@@ -97,6 +110,7 @@ export default function AdminEventsPage() {
       }
 
       setFormData(emptyForm)
+      setHeroFile(null)
       setCoverFile(null)
       setImageFile(null)
       setImageInputKey((prev) => prev + 1)
@@ -157,6 +171,41 @@ export default function AdminEventsPage() {
                 className={inputClass()}
               />
             </Field>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <h3 className="font-bold text-slate-900">Fondo del inicio</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Esta imagen aparece difuminada detrás del texto principal de la página inicial.
+              </p>
+
+              <div className="mt-4 space-y-4">
+                <Field label="URL de fondo opcional">
+                  <input
+                    name="imagen_hero"
+                    value={formData.imagen_hero}
+                    onChange={handleChange}
+                    placeholder="https://... o /uploads/eventos/hero.png"
+                    className={inputClass()}
+                  />
+                </Field>
+
+                <Field label="Subir fondo del inicio">
+                  <input
+                    key={`hero-${imageInputKey}`}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    onChange={(e) => setHeroFile(e.target.files?.[0] || null)}
+                    className={inputClass()}
+                  />
+                </Field>
+
+                {heroFile && (
+                  <p className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-600">
+                    Fondo seleccionado: {heroFile.name}
+                  </p>
+                )}
+              </div>
+            </div>
 
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
               <h3 className="font-bold text-slate-900">Foto de portada</h3>

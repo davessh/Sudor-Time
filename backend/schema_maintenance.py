@@ -25,6 +25,7 @@ REGISTRATION_COLUMNS = {
 }
 
 EVENT_COLUMNS = {
+    "imagen_hero": "TEXT",
     "imagen_portada": "TEXT",
     "imagen_playera": "TEXT",
     "imagen_medalla": "TEXT",

@@ -1,5 +1,8 @@
 import { ChevronDown, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getApiAssetUrl } from '../api/client'
+
+const DEFAULT_HERO_IMAGE = '/eventos/medio2.jpg'
 
 const navItems = [
   { label: 'INICIO', href: '/' },
@@ -12,19 +15,25 @@ export default function Hero({
   filters,
   distanceOptions = [],
   monthOptions = [],
+  heroImage,
   onQueryChange,
   onDistanceChange,
   onMonthChange,
 }) {
   const selectedDistance = filters.distances.length === 1 ? filters.distances[0] : ''
   const selectedMonth = filters.months.length === 1 ? filters.months[0] : ''
+  const heroImageSrc = heroImage ? getApiAssetUrl(heroImage) : DEFAULT_HERO_IMAGE
 
   return (
     <section className="relative overflow-hidden bg-[#15070a] text-white">
-      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(18,6,9,0.96),rgba(106,26,36,0.9)_48%,rgba(9,13,24,0.96))]" />
-      <div className="absolute inset-0 bg-[url('/eventos/medio2.jpg')] bg-cover bg-center opacity-[0.16]" />
+      <div
+        className="absolute inset-0 scale-105 bg-cover bg-center opacity-30 blur-sm"
+        style={{ backgroundImage: `url("${heroImageSrc}")` }}
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(18,6,9,0.94),rgba(106,26,36,0.82)_48%,rgba(9,13,24,0.94))]" />
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08)_0_1px,transparent_1px_18px)] opacity-25" />
-      <div className="absolute inset-0 bg-black/38" />
+      <div className="absolute inset-0 bg-black/34" />
       <div className="absolute inset-x-0 bottom-0 h-px bg-white/10" />
 
       <div className="relative border-b border-white/10 bg-black/35 shadow-2xl shadow-black/20 backdrop-blur-md">
