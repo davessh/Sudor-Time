@@ -50,16 +50,6 @@ export function uploadEventPortada(eventId, file) {
   })
 }
 
-export function uploadEventHero(eventId, file) {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  return apiRequest(`/events/${eventId}/upload-hero`, {
-    method: 'POST',
-    body: formData,
-  })
-}
-
 export function uploadEventPlayera(eventId, file) {
   const formData = new FormData()
   formData.append('file', file)

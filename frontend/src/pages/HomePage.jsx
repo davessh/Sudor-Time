@@ -3,6 +3,7 @@ import Hero from '../components/Hero'
 import EventCard from '../components/EventCard'
 import EventSkeleton from '../components/EventSkeleton'
 import { getEvents, getEventSetup } from '../api/events'
+import { getSiteSettings } from '../api/siteSettings'
 
 const FALLBACK_MONTHS = [3, 4, 5, 6]
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -61,6 +62,7 @@ function toggleValue(values, value) {
 
 export default function HomePage() {
   const [eventos, setEventos] = useState([])
+  const [siteSettings, setSiteSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filters, setFilters] = useState({
@@ -75,7 +77,14 @@ export default function HomePage() {
       try {
         setLoading(true)
         setError('')
-        const data = await getEvents()
+        const [data, settings] = await Promise.all([
+          getEvents(),
+          getSiteSettings().catch((settingsError) => {
+            console.warn('No pudimos cargar los ajustes del sitio:', settingsError)
+            return null
+          }),
+        ])
+        setSiteSettings(settings)
         const enriched = await Promise.all(
           data.map(async (event) => {
             try {
@@ -113,8 +122,6 @@ export default function HomePage() {
     const distances = eventos.flatMap(getEventDistances)
     return [...new Set([...BASE_DISTANCES, ...distances])]
   }, [eventos])
-
-  const heroImage = useMemo(() => eventos.find((evento) => evento.imagen_hero)?.imagen_hero || '', [eventos])
 
   const filteredEventos = useMemo(() => {
     const query = normalizeText(filters.query)
@@ -155,7 +162,7 @@ export default function HomePage() {
         filters={filters}
         distanceOptions={distanceOptions}
         monthOptions={monthOptions}
-        heroImage={heroImage}
+        siteSettings={siteSettings}
         onQueryChange={(value) => updateFilter('query', value)}
         onDistanceChange={(value) => updateFilter('distances', value ? [value] : [])}
         onMonthChange={(value) => updateFilter('months', value ? [value] : [])}

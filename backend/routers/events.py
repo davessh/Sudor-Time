@@ -83,7 +83,6 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
         "hora_salida": event.hora_salida,
         "organizador": event.organizador,
         "inscripciones_abiertas": event.inscripciones_abiertas,
-        "imagen_hero": event.imagen_hero,
         "imagen_portada": event.imagen_portada,
         "imagen_convocatoria": event.imagen_convocatoria,
         "imagen_playera": event.imagen_playera,
@@ -203,15 +202,6 @@ async def subir_portada_evento(
     db: Session = Depends(get_db),
 ):
     return await _guardar_imagen_evento(event_id, file, db, "imagen_portada", "portada")
-
-
-@router.post("/{event_id}/upload-hero", response_model=EventResponse, dependencies=[Depends(require_admin)])
-async def subir_hero_evento(
-    event_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-):
-    return await _guardar_imagen_evento(event_id, file, db, "imagen_hero", "hero")
 
 
 @router.post("/{event_id}/upload-playera", response_model=EventResponse, dependencies=[Depends(require_admin)])

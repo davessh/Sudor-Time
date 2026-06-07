@@ -15,14 +15,19 @@ export default function Hero({
   filters,
   distanceOptions = [],
   monthOptions = [],
-  heroImage,
+  siteSettings,
   onQueryChange,
   onDistanceChange,
   onMonthChange,
 }) {
   const selectedDistance = filters.distances.length === 1 ? filters.distances[0] : ''
   const selectedMonth = filters.months.length === 1 ? filters.months[0] : ''
-  const heroImageSrc = heroImage ? getApiAssetUrl(heroImage) : DEFAULT_HERO_IMAGE
+  const heroImageSrc = siteSettings?.hero_background_image
+    ? getApiAssetUrl(siteSettings.hero_background_image)
+    : DEFAULT_HERO_IMAGE
+  const heroColorStart = siteSettings?.hero_color_start || '#15070A'
+  const heroColorMid = siteSettings?.hero_color_mid || '#6A1A24'
+  const heroColorEnd = siteSettings?.hero_color_end || '#090D18'
 
   return (
     <section className="relative overflow-hidden bg-[#15070a] text-white">
@@ -31,7 +36,11 @@ export default function Hero({
         style={{ backgroundImage: `url("${heroImageSrc}")` }}
         aria-hidden="true"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(18,6,9,0.94),rgba(106,26,36,0.82)_48%,rgba(9,13,24,0.94))]" />
+      <div
+        className="absolute inset-0 opacity-95"
+        style={{ background: `linear-gradient(120deg, ${heroColorStart}, ${heroColorMid} 48%, ${heroColorEnd})` }}
+        aria-hidden="true"
+      />
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08)_0_1px,transparent_1px_18px)] opacity-25" />
       <div className="absolute inset-0 bg-black/34" />
       <div className="absolute inset-x-0 bottom-0 h-px bg-white/10" />

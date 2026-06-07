@@ -20,7 +20,8 @@ from routers.results import router as results_router
 from routers.debug import router as debug_router
 from routers.dashboard import router as dashboard_router
 from routers.payments import router as payments_router
-from schema_maintenance import ensure_event_merch_columns, ensure_registration_payment_columns
+from routers.site_settings import router as site_settings_router
+from schema_maintenance import ensure_event_merch_columns, ensure_registration_payment_columns, ensure_site_settings_columns
 
 
 def get_cors_origins():
@@ -42,6 +43,7 @@ def get_cors_origins():
 Base.metadata.create_all(bind=engine)
 ensure_registration_payment_columns(engine)
 ensure_event_merch_columns(engine)
+ensure_site_settings_columns(engine)
 
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -69,6 +71,7 @@ app.include_router(results_router)
 app.include_router(debug_router)
 app.include_router(dashboard_router)
 app.include_router(payments_router)
+app.include_router(site_settings_router)
 
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 

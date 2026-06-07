@@ -25,7 +25,6 @@ REGISTRATION_COLUMNS = {
 }
 
 EVENT_COLUMNS = {
-    "imagen_hero": "TEXT",
     "imagen_portada": "TEXT",
     "imagen_playera": "TEXT",
     "imagen_medalla": "TEXT",
@@ -37,6 +36,13 @@ EVENT_MODALITY_COLUMNS = {
 
 REGISTRATION_PRODUCT_COLUMNS = {
     "incluye_playera": "BOOLEAN DEFAULT FALSE NOT NULL",
+}
+
+SITE_SETTINGS_COLUMNS = {
+    "hero_background_image": "TEXT",
+    "hero_color_start": "VARCHAR(20) DEFAULT '#15070A' NOT NULL",
+    "hero_color_mid": "VARCHAR(20) DEFAULT '#6A1A24' NOT NULL",
+    "hero_color_end": "VARCHAR(20) DEFAULT '#090D18' NOT NULL",
 }
 
 
@@ -88,3 +94,20 @@ def ensure_event_merch_columns(engine):
             for name, definition in columns.items():
                 if name not in existing_columns:
                     connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {definition}"))
+
+
+def ensure_site_settings_columns(engine):
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+    if "site_settings" not in table_names:
+        return
+
+    existing_columns = {
+        column["name"]
+        for column in inspector.get_columns("site_settings")
+    }
+
+    with engine.begin() as connection:
+        for name, definition in SITE_SETTINGS_COLUMNS.items():
+            if name not in existing_columns:
+                connection.execute(text(f"ALTER TABLE site_settings ADD COLUMN {name} {definition}"))

@@ -15,6 +15,7 @@ import AdminEventResultsPage from './pages/admin/AdminEventResultsPage'
 import AdminEventResultsPrintPage from './pages/admin/AdminEventResultsPrintPage'
 import AdminEventSetupPage from './pages/admin/AdminEventSetupPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
+import AdminSiteSettingsPage from './pages/admin/AdminSiteSettingsPage'
 import RequireAdmin from './components/admin/RequireAdmin'
 
 function adminPage(element) {
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/admin/eventos/:id/configuracion" element={adminPage(<AdminEventSetupPage />)}/>
       <Route path="/admin/tags" element={adminPage(<AdminTagsPage />)} />
       <Route path="/admin/lecturas" element={adminPage(<AdminReadsPage />)} />
+      <Route path="/admin/ajustes" element={adminPage(<AdminSiteSettingsPage />)} />
       <Route path="/admin/eventos/:id/resultados" element={adminPage(<AdminEventResultsPage />)}/>
       <Route path="/admin/eventos/:id/resultados/print" element={adminPage(<AdminEventResultsPrintPage />)}/>
     </Routes>

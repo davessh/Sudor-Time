@@ -19,7 +19,6 @@ class Event(Base):
     hora_salida = Column(String, nullable=True)
     organizador = Column(String, nullable=True)
     inscripciones_abiertas = Column(Boolean, default=True)
-    imagen_hero = Column(Text, nullable=True)
     imagen_portada = Column(Text, nullable=True)
     imagen_convocatoria = Column(Text, nullable=True)
     imagen_playera = Column(Text, nullable=True)

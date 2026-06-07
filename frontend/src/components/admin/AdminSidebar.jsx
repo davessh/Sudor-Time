@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, LayoutDashboard, RadioTower } from 'lucide-react'
+import { Activity, ClipboardList, LayoutDashboard, RadioTower, Settings } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 export default function AdminSidebar() {
@@ -7,6 +7,7 @@ export default function AdminSidebar() {
   const links = [
     { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/admin/eventos', label: 'Eventos', icon: ClipboardList },
+    { to: '/admin/ajustes', label: 'Ajustes', icon: Settings },
     { to: '/admin/tags', label: 'Tags', icon: Activity },
     { to: '/admin/lecturas', label: 'Lecturas', icon: RadioTower },
   ]
