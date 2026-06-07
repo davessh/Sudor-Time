@@ -6,22 +6,25 @@ const DEFAULT_HERO_IMAGE = '/eventos/medio2.jpg'
 
 const navItems = [
   { label: 'INICIO', href: '/' },
-  { label: 'CALENDARIO', href: '#eventos' },
-  { label: 'RESULTADOS', href: '#eventos' },
+  { label: 'CALENDARIO', href: '/#eventos' },
+  { label: 'RESULTADOS', href: '/#eventos' },
   { label: 'GALERÍA', href: '/galeria' },
 ]
 
 export default function Hero({
-  filters,
+  title = 'Encuentra tu próxima carrera',
+  subtitle = 'Inscripciones en línea para eventos deportivos en Mexicali y la región.',
+  filters = { query: '', distances: [], months: [] },
   distanceOptions = [],
   monthOptions = [],
   siteSettings,
+  showSearch = true,
   onQueryChange,
   onDistanceChange,
   onMonthChange,
 }) {
-  const selectedDistance = filters.distances.length === 1 ? filters.distances[0] : ''
-  const selectedMonth = filters.months.length === 1 ? filters.months[0] : ''
+  const selectedDistance = filters.distances?.length === 1 ? filters.distances[0] : ''
+  const selectedMonth = filters.months?.length === 1 ? filters.months[0] : ''
   const settingsLoaded = siteSettings !== undefined
   const heroImageSrc = siteSettings?.hero_background_image
     ? getApiAssetUrl(siteSettings.hero_background_image)
@@ -37,6 +40,7 @@ export default function Hero({
   const heroOpacity = Number(siteSettings?.hero_background_opacity ?? 46) / 100
   const navbarBlur = Number(siteSettings?.navbar_blur ?? 12)
   const navbarOpacity = Number(siteSettings?.navbar_opacity ?? 35) / 100
+  const heroMinHeight = showSearch ? 'lg:min-h-[300px]' : 'lg:min-h-[245px]'
 
   return (
     <section className="relative overflow-hidden bg-[#15070a] text-white">
@@ -92,70 +96,72 @@ export default function Hero({
             <Link to="/admin/login" className="btn-nav-outline">
               Iniciar sesión
             </Link>
-            <a href="#eventos" className="btn-nav-solid">
+            <a href="/#eventos" className="btn-nav-solid">
               Registrarse
             </a>
           </div>
         </div>
       </div>
 
-      <div className="page-container relative flex min-h-[245px] flex-col items-center justify-center py-8 text-center sm:min-h-[275px] sm:py-9 lg:min-h-[300px]">
+      <div className={`page-container relative flex min-h-[220px] flex-col items-center justify-center py-8 text-center sm:min-h-[245px] sm:py-9 ${heroMinHeight}`}>
         <div className="max-w-3xl animate-[fadeUp_.55s_ease-out]">
           <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-            Encuentra tu próxima carrera
+            {title}
           </h1>
 
           <p className="mx-auto mt-3 max-w-2xl text-sm font-medium leading-6 text-white/82 sm:text-base">
-            Inscripciones en línea para eventos deportivos en Mexicali y la región.
+            {subtitle}
           </p>
         </div>
 
-        <form
-          className="mt-6 grid w-full max-w-4xl gap-3 rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md md:grid-cols-[1.35fr_0.8fr_0.8fr]"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <label className="hero-field">
-            <Search className="h-5 w-5 shrink-0 text-white/70" aria-hidden="true" />
-            <input
-              type="search"
-              value={filters.query}
-              placeholder="Buscar por evento o ciudad..."
-              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/62"
-              aria-label="Buscar por evento o ciudad"
-              onChange={(event) => onQueryChange(event.target.value)}
-            />
-          </label>
+        {showSearch && (
+          <form
+            className="mt-6 grid w-full max-w-4xl gap-3 rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md md:grid-cols-[1.35fr_0.8fr_0.8fr]"
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <label className="hero-field">
+              <Search className="h-5 w-5 shrink-0 text-white/70" aria-hidden="true" />
+              <input
+                type="search"
+                value={filters.query || ''}
+                placeholder="Buscar por evento o ciudad..."
+                className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/62"
+                aria-label="Buscar por evento o ciudad"
+                onChange={(event) => onQueryChange?.(event.target.value)}
+              />
+            </label>
 
-          <label className="hero-field">
-            <select
-              value={selectedDistance}
-              className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-white outline-none"
-              aria-label="Filtrar por distancia"
-              onChange={(event) => onDistanceChange(event.target.value)}
-            >
-              <option value="">Distancia</option>
-              {distanceOptions.map((distance) => (
-                <option key={distance} value={distance}>{distance}</option>
-              ))}
-            </select>
-            <ChevronDown className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
-          </label>
+            <label className="hero-field">
+              <select
+                value={selectedDistance}
+                className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-white outline-none"
+                aria-label="Filtrar por distancia"
+                onChange={(event) => onDistanceChange?.(event.target.value)}
+              >
+                <option value="">Distancia</option>
+                {distanceOptions.map((distance) => (
+                  <option key={distance} value={distance}>{distance}</option>
+                ))}
+              </select>
+              <ChevronDown className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
+            </label>
 
-          <label className="hero-field">
-            <select
-              value={selectedMonth}
-              className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-white outline-none"
-              aria-label="Filtrar por mes"
-              onChange={(event) => onMonthChange(event.target.value)}
-            >
-              <option value="">Mes</option>
-              {monthOptions.map((month) => (
-                <option key={month.value} value={month.value}>{month.longLabel}</option>
-              ))}
-            </select>
-            <ChevronDown className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
-          </label>
-        </form>
+            <label className="hero-field">
+              <select
+                value={selectedMonth}
+                className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-white outline-none"
+                aria-label="Filtrar por mes"
+                onChange={(event) => onMonthChange?.(event.target.value)}
+              >
+                <option value="">Mes</option>
+                {monthOptions.map((month) => (
+                  <option key={month.value} value={month.value}>{month.longLabel}</option>
+                ))}
+              </select>
+              <ChevronDown className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
+            </label>
+          </form>
+        )}
       </div>
     </section>
   )

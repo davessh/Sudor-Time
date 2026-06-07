@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, ExternalLink, Images } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { CalendarDays, ExternalLink, Images } from 'lucide-react'
+import Hero from '../components/Hero'
 import { getApiAssetUrl } from '../api/client'
 import { getGalleryAlbums } from '../api/gallery'
+import { getSiteSettings } from '../api/siteSettings'
 
 const fallbackImage = '/eventos/medio2.jpg'
 
 export default function GalleryPage() {
   const [albums, setAlbums] = useState([])
+  const [siteSettings, setSiteSettings] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -16,7 +18,14 @@ export default function GalleryPage() {
       try {
         setLoading(true)
         setError('')
-        const data = await getGalleryAlbums()
+        const [data, settings] = await Promise.all([
+          getGalleryAlbums(),
+          getSiteSettings().catch((settingsError) => {
+            console.warn('No pudimos cargar los ajustes del sitio:', settingsError)
+            return null
+          }),
+        ])
+        setSiteSettings(settings)
         setAlbums(data)
       } catch (err) {
         setError(err.message || 'No se pudo cargar la galería')
@@ -30,29 +39,12 @@ export default function GalleryPage() {
 
   return (
     <main className="min-h-screen bg-[#FDFBF9] text-slate-950">
-      <header className="relative overflow-hidden bg-[#15070A] text-white">
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,#15070A,#6A1A24_50%,#090D18)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.07)_0_1px,transparent_1px_18px)] opacity-20" />
-        <div className="page-container relative py-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <Link to="/" className="inline-flex items-center gap-3 font-black">
-              <img src="/sudortime.png" alt="SudorTime" className="h-16 w-auto object-contain" />
-            </Link>
-            <Link to="/" className="inline-flex items-center gap-2 rounded-full border border-white/25 px-4 py-2 text-sm font-bold text-white/90 transition hover:bg-white/10">
-              <ArrowLeft className="h-4 w-4" />
-              Volver al inicio
-            </Link>
-          </div>
-
-          <section className="max-w-3xl py-12 sm:py-16">
-            <p className="text-xs font-black uppercase tracking-[0.32em] text-red-100">Sudor Cachanilla</p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">Galería de carreras</h1>
-            <p className="mt-4 text-base font-medium leading-7 text-white/78 sm:text-lg">
-              Revive cada evento con álbumes publicados en Facebook. Elige una carrera y abre la galería completa.
-            </p>
-          </section>
-        </div>
-      </header>
+      <Hero
+        title="Galería de carreras"
+        subtitle="Revive cada evento con álbumes publicados en Facebook. Elige una carrera y abre la galería completa."
+        siteSettings={siteSettings}
+        showSearch={false}
+      />
 
       <section className="page-container py-10 sm:py-14">
         <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
