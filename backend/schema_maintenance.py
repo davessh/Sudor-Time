@@ -47,6 +47,8 @@ SITE_SETTINGS_COLUMNS = {
     "hero_background_position_x": "INTEGER DEFAULT 50 NOT NULL",
     "hero_background_position_y": "INTEGER DEFAULT 46 NOT NULL",
     "hero_background_opacity": "INTEGER DEFAULT 46 NOT NULL",
+    "navbar_blur": "INTEGER DEFAULT 12 NOT NULL",
+    "navbar_opacity": "INTEGER DEFAULT 35 NOT NULL",
 }
 
 

@@ -35,6 +35,8 @@ export default function Hero({
   const heroPositionX = Number(siteSettings?.hero_background_position_x ?? 50)
   const heroPositionY = Number(siteSettings?.hero_background_position_y ?? 46)
   const heroOpacity = Number(siteSettings?.hero_background_opacity ?? 46) / 100
+  const navbarBlur = Number(siteSettings?.navbar_blur ?? 12)
+  const navbarOpacity = Number(siteSettings?.navbar_opacity ?? 35) / 100
 
   return (
     <section className="relative overflow-hidden bg-[#15070a] text-white">
@@ -60,7 +62,14 @@ export default function Hero({
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.06)_0_1px,transparent_1px_18px)] opacity-20" />
       <div className="absolute inset-x-0 bottom-0 h-px bg-white/10" />
 
-      <div className="relative border-b border-white/10 bg-black/35 shadow-2xl shadow-black/20 backdrop-blur-md">
+      <div
+        className="relative border-b border-white/10 shadow-2xl shadow-black/20"
+        style={{
+          backgroundColor: `rgba(0, 0, 0, ${navbarOpacity})`,
+          backdropFilter: `blur(${navbarBlur}px)`,
+          WebkitBackdropFilter: `blur(${navbarBlur}px)`,
+        }}
+      >
         <div className="page-container flex min-h-16 flex-col gap-2 py-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <Link to="/" className="flex items-center justify-center lg:justify-start" aria-label="SudorTime inicio">
             <img src="/sudortime.png" alt="SudorTime" className="h-20 w-auto object-contain drop-shadow-2xl sm:h-24 lg:h-28" />

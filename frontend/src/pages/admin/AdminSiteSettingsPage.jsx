@@ -12,6 +12,8 @@ const defaultSettings = {
   hero_background_position_x: 50,
   hero_background_position_y: 46,
   hero_background_opacity: 46,
+  navbar_blur: 12,
+  navbar_opacity: 35,
 }
 
 export default function AdminSiteSettingsPage() {
@@ -70,6 +72,8 @@ export default function AdminSiteSettingsPage() {
         hero_background_position_x: Number(settings.hero_background_position_x),
         hero_background_position_y: Number(settings.hero_background_position_y),
         hero_background_opacity: Number(settings.hero_background_opacity),
+        navbar_blur: Number(settings.navbar_blur),
+        navbar_opacity: Number(settings.navbar_opacity),
       })
       setSettings({ ...defaultSettings, ...data })
       showSuccess('Ajustes del hero guardados.')
@@ -172,6 +176,30 @@ export default function AdminSiteSettingsPage() {
                 maxLabel="Fuerte"
                 onChange={handleChange}
               />
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="font-bold text-slate-900">Barra superior</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Controla el fondo donde están el logo, Inicio, Calendario, Resultados y Galería.
+                </p>
+                <div className="mt-4 space-y-5">
+                  <RangeField
+                    label="Blur de la barra"
+                    name="navbar_blur"
+                    value={settings.navbar_blur}
+                    minLabel="Nítida"
+                    maxLabel="Difuminada"
+                    onChange={handleChange}
+                  />
+                  <RangeField
+                    label="Oscuridad de la barra"
+                    name="navbar_opacity"
+                    value={settings.navbar_opacity}
+                    minLabel="Transparente"
+                    maxLabel="Sólida"
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
 
               <button disabled={saving === 'colors'} className="w-full rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
                 {saving === 'colors' ? 'Guardando...' : 'Guardar ajustes'}

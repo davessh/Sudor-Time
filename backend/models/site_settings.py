@@ -15,3 +15,5 @@ class SiteSettings(Base):
     hero_background_position_x = Column(Integer, nullable=False, default=50)
     hero_background_position_y = Column(Integer, nullable=False, default=46)
     hero_background_opacity = Column(Integer, nullable=False, default=46)
+    navbar_blur = Column(Integer, nullable=False, default=12)
+    navbar_opacity = Column(Integer, nullable=False, default=35)

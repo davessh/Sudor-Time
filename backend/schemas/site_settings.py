@@ -12,6 +12,8 @@ class SiteSettingsUpdate(BaseModel):
     hero_background_position_x: Optional[int] = None
     hero_background_position_y: Optional[int] = None
     hero_background_opacity: Optional[int] = None
+    navbar_blur: Optional[int] = None
+    navbar_opacity: Optional[int] = None
 
 
 class SiteSettingsResponse(BaseModel):
@@ -24,5 +26,7 @@ class SiteSettingsResponse(BaseModel):
     hero_background_position_x: int = 50
     hero_background_position_y: int = 46
     hero_background_opacity: int = 46
+    navbar_blur: int = 12
+    navbar_opacity: int = 35
 
     model_config = ConfigDict(from_attributes=True)
