@@ -5,3 +5,4 @@ from .registration import Registration
 from .read import RawRead
 from .result import Result
 from .site_settings import SiteSettings
+from .gallery import GalleryAlbum

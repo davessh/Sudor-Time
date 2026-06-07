@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import EventPage from './pages/EventPage'
+import GalleryPage from './pages/GalleryPage'
 import ResultsPage from './pages/ResultsPage'
 import RegistrationPage from './pages/RegistrationPage'
 import RegistrationLookupPage from './pages/RegistrationLookupPage'
@@ -16,6 +17,7 @@ import AdminEventResultsPrintPage from './pages/admin/AdminEventResultsPrintPage
 import AdminEventSetupPage from './pages/admin/AdminEventSetupPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminSiteSettingsPage from './pages/admin/AdminSiteSettingsPage'
+import AdminGalleryPage from './pages/admin/AdminGalleryPage'
 import RequireAdmin from './components/admin/RequireAdmin'
 
 function adminPage(element) {
@@ -26,6 +28,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/galeria" element={<GalleryPage />} />
       <Route path="/evento/:id" element={<EventPage />} />
       <Route path="/evento/:id/resultados" element={<ResultsPage />} />
       <Route path="/evento/:id/inscripcion" element={<RegistrationPage />} />
@@ -40,6 +43,7 @@ export default function App() {
       <Route path="/admin/tags" element={adminPage(<AdminTagsPage />)} />
       <Route path="/admin/lecturas" element={adminPage(<AdminReadsPage />)} />
       <Route path="/admin/ajustes" element={adminPage(<AdminSiteSettingsPage />)} />
+      <Route path="/admin/galeria" element={adminPage(<AdminGalleryPage />)} />
       <Route path="/admin/eventos/:id/resultados" element={adminPage(<AdminEventResultsPage />)}/>
       <Route path="/admin/eventos/:id/resultados/print" element={adminPage(<AdminEventResultsPrintPage />)}/>
     </Routes>

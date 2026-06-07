@@ -8,7 +8,7 @@ const navItems = [
   { label: 'INICIO', href: '/' },
   { label: 'CALENDARIO', href: '#eventos' },
   { label: 'RESULTADOS', href: '#eventos' },
-  { label: 'GALERÍA', href: '#eventos' },
+  { label: 'GALERÍA', href: '/galeria' },
 ]
 
 export default function Hero({
