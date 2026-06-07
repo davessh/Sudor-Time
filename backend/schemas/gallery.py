@@ -10,6 +10,9 @@ class GalleryAlbumCreate(BaseModel):
     facebook_url: HttpUrl
     imagen_portada: Optional[str] = None
     fecha: Optional[date] = None
+    ubicacion: Optional[str] = None
+    distancia: Optional[str] = None
+    cantidad_fotos: Optional[int] = None
     visible: bool = True
     orden: int = 0
 
@@ -20,6 +23,9 @@ class GalleryAlbumUpdate(BaseModel):
     facebook_url: Optional[HttpUrl] = None
     imagen_portada: Optional[str] = None
     fecha: Optional[date] = None
+    ubicacion: Optional[str] = None
+    distancia: Optional[str] = None
+    cantidad_fotos: Optional[int] = None
     visible: Optional[bool] = None
     orden: Optional[int] = None
 
@@ -31,6 +37,9 @@ class GalleryAlbumResponse(BaseModel):
     facebook_url: str
     imagen_portada: Optional[str] = None
     fecha: Optional[date] = None
+    ubicacion: Optional[str] = None
+    distancia: Optional[str] = None
+    cantidad_fotos: Optional[int] = None
     visible: bool
     orden: int
     created_at: datetime

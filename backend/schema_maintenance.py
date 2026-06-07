@@ -51,6 +51,12 @@ SITE_SETTINGS_COLUMNS = {
     "navbar_opacity": "INTEGER DEFAULT 35 NOT NULL",
 }
 
+GALLERY_ALBUM_COLUMNS = {
+    "ubicacion": "VARCHAR",
+    "distancia": "VARCHAR",
+    "cantidad_fotos": "INTEGER",
+}
+
 
 def ensure_registration_payment_columns(engine):
     inspector = inspect(engine)
@@ -117,3 +123,20 @@ def ensure_site_settings_columns(engine):
         for name, definition in SITE_SETTINGS_COLUMNS.items():
             if name not in existing_columns:
                 connection.execute(text(f"ALTER TABLE site_settings ADD COLUMN {name} {definition}"))
+
+
+def ensure_gallery_album_columns(engine):
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+    if "gallery_albums" not in table_names:
+        return
+
+    existing_columns = {
+        column["name"]
+        for column in inspector.get_columns("gallery_albums")
+    }
+
+    with engine.begin() as connection:
+        for name, definition in GALLERY_ALBUM_COLUMNS.items():
+            if name not in existing_columns:
+                connection.execute(text(f"ALTER TABLE gallery_albums ADD COLUMN {name} {definition}"))

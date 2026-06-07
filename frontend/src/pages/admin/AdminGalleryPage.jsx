@@ -15,6 +15,9 @@ const emptyForm = {
   descripcion: '',
   facebook_url: '',
   fecha: '',
+  ubicacion: '',
+  distancia: '',
+  cantidad_fotos: '',
   visible: true,
   orden: 0,
 }
@@ -56,6 +59,11 @@ export default function AdminGalleryPage() {
       descripcion: values.descripcion.trim() || null,
       facebook_url: values.facebook_url.trim(),
       fecha: values.fecha || null,
+      ubicacion: values.ubicacion?.trim() || null,
+      distancia: values.distancia?.trim() || null,
+      cantidad_fotos: values.cantidad_fotos === '' || values.cantidad_fotos === null || values.cantidad_fotos === undefined
+        ? null
+        : Number(values.cantidad_fotos),
       visible: Boolean(values.visible),
       orden: Number(values.orden || 0),
     }
@@ -178,6 +186,17 @@ export default function AdminGalleryPage() {
                 <input type="number" name="orden" value={form.orden} onChange={handleFormChange} className={inputClass()} />
               </Field>
             </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Ubicación">
+                <input name="ubicacion" value={form.ubicacion} onChange={handleFormChange} className={inputClass()} placeholder="Mexicali, B.C." />
+              </Field>
+              <Field label="Distancia">
+                <input name="distancia" value={form.distancia} onChange={handleFormChange} className={inputClass()} placeholder="1km / 5km" />
+              </Field>
+              <Field label="Fotos">
+                <input type="number" name="cantidad_fotos" value={form.cantidad_fotos} onChange={handleFormChange} className={inputClass()} placeholder="500" />
+              </Field>
+            </div>
             <Field label="Portada">
               <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} className={inputClass()} />
             </Field>
@@ -214,6 +233,9 @@ export default function AdminGalleryPage() {
                   album.descripcion,
                   album.facebook_url,
                   album.fecha,
+                  album.ubicacion,
+                  album.distancia,
+                  album.cantidad_fotos,
                   album.visible,
                   album.orden,
                   album.imagen_portada,
@@ -238,6 +260,9 @@ function AlbumEditor({ album, saving, onSave, onCoverUpload, onDelete }) {
     descripcion: album.descripcion || '',
     facebook_url: album.facebook_url || '',
     fecha: album.fecha || '',
+    ubicacion: album.ubicacion || '',
+    distancia: album.distancia || '',
+    cantidad_fotos: album.cantidad_fotos ?? '',
     visible: Boolean(album.visible),
     orden: album.orden || 0,
   })
@@ -268,6 +293,17 @@ function AlbumEditor({ album, saving, onSave, onCoverUpload, onDelete }) {
             </Field>
             <Field label="Fecha">
               <input type="date" name="fecha" value={values.fecha} onChange={handleChange} className={inputClass()} />
+            </Field>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <Field label="Ubicación">
+              <input name="ubicacion" value={values.ubicacion} onChange={handleChange} className={inputClass()} />
+            </Field>
+            <Field label="Distancia">
+              <input name="distancia" value={values.distancia} onChange={handleChange} className={inputClass()} />
+            </Field>
+            <Field label="Fotos">
+              <input type="number" name="cantidad_fotos" value={values.cantidad_fotos} onChange={handleChange} className={inputClass()} />
             </Field>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_120px]">
