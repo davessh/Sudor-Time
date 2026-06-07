@@ -5,6 +5,7 @@ import EventSkeleton from '../components/EventSkeleton'
 import { getEvents, getEventSetup } from '../api/events'
 import { getSiteSettings } from '../api/siteSettings'
 import { getResultsByEvent } from '../api/results'
+import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 
 const FALLBACK_MONTHS = [3, 4, 5, 6]
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -65,6 +66,7 @@ export default function HomePage() {
   const [siteSettings, setSiteSettings] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [filters, setFilters] = useState({
     query: '',
     maxPrice: 500,
@@ -166,6 +168,14 @@ export default function HomePage() {
   const hasActiveFilters = Boolean(
     filters.query || filters.distances.length || filters.months.length || Number(filters.maxPrice) < 500,
   )
+  const activeFilterCount = [
+    filters.query ? 1 : 0,
+    filters.distances.length,
+    filters.months.length,
+    Number(filters.maxPrice) < 500 ? 1 : 0,
+  ].reduce((total, value) => total + value, 0)
+
+  const resetFilters = () => setFilters({ query: '', maxPrice: 500, distances: [], months: [] })
 
   return (
     <div className="page-shell">
@@ -180,10 +190,41 @@ export default function HomePage() {
         onMonthChange={(value) => updateFilter('months', value ? [value] : [])}
       />
 
-      <main id="eventos" className="page-container max-w-[1440px] py-7 sm:py-9 lg:py-11">
-        <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start xl:grid-cols-[245px_minmax(0,1fr)]">
-          <aside className="panel p-4 sm:p-5 lg:sticky lg:top-4">
-            <div className="flex items-center justify-between gap-3">
+      <main id="eventos" className="page-container max-w-[1440px] py-4 sm:py-7 lg:py-11">
+        <div className="grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[245px_minmax(0,1fr)]">
+          <aside className="panel overflow-hidden lg:sticky lg:top-4">
+            <button
+              type="button"
+              className="flex min-h-14 w-full items-center justify-between gap-3 px-4 text-left lg:hidden"
+              aria-expanded={mobileFiltersOpen}
+              aria-controls="quick-search-panel"
+              onClick={() => setMobileFiltersOpen((open) => !open)}
+            >
+              <span className="flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 text-[#6A1A24]" aria-hidden="true" />
+                <span>
+                  <span className="block text-sm font-black uppercase tracking-tight text-slate-950">Búsqueda rápida</span>
+                  <span className="mt-0.5 block text-xs font-semibold text-slate-500">
+                    {activeFilterCount ? `${activeFilterCount} activo${activeFilterCount === 1 ? '' : 's'}` : 'Toca para filtrar'}
+                  </span>
+                </span>
+              </span>
+              <ChevronDown
+                className={`h-5 w-5 text-slate-500 transition ${mobileFiltersOpen ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              />
+            </button>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="mx-4 mb-4 inline-flex min-h-9 items-center justify-center rounded-xl border border-[#6A1A24]/20 bg-[#6A1A24]/5 px-3 text-xs font-black uppercase tracking-wide text-[#6A1A24] lg:hidden"
+                onClick={resetFilters}
+              >
+                Limpiar filtros
+              </button>
+            )}
+
+            <div className="hidden items-center justify-between gap-3 px-5 pt-5 lg:flex">
               <h2 className="text-sm font-black uppercase tracking-tight text-slate-950">Búsqueda rápida</h2>
               {hasActiveFilters && (
                 <button
@@ -196,7 +237,8 @@ export default function HomePage() {
               )}
             </div>
 
-            <div className="mt-5 border-b border-slate-200 pb-5">
+            <div id="quick-search-panel" className={`${mobileFiltersOpen ? 'block' : 'hidden'} border-t border-slate-100 px-4 pb-4 lg:block lg:border-t-0 lg:px-5 lg:pb-5`}>
+            <div className="mt-4 border-b border-slate-200 pb-5 lg:mt-5">
               <label htmlFor="price-filter" className="text-sm font-black text-slate-950">
                 Precio
               </label>
@@ -251,6 +293,7 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
+            </div>
             </div>
           </aside>
 
