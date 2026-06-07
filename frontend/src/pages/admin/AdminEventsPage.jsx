@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getApiAssetUrl } from '../../api/client'
-import { getEvents, createEvent, uploadEventConvocatoria } from '../../api/events'
+import { getEvents, createEvent, uploadEventConvocatoria, uploadEventPortada } from '../../api/events'
 
 const emptyForm = {
   nombre: '',
@@ -13,6 +13,7 @@ const emptyForm = {
   hora_salida: '',
   organizador: '',
   inscripciones_abiertas: true,
+  imagen_portada: '',
   imagen_convocatoria: '',
 }
 
@@ -24,6 +25,7 @@ export default function AdminEventsPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState(emptyForm)
+  const [coverFile, setCoverFile] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
 
@@ -70,8 +72,19 @@ export default function AdminEventsPage() {
         hora_salida: formData.hora_salida || null,
         organizador: formData.organizador.trim() || null,
         inscripciones_abiertas: formData.inscripciones_abiertas,
+        imagen_portada: formData.imagen_portada.trim() || null,
         imagen_convocatoria: formData.imagen_convocatoria.trim() || null,
       })
+
+      if (coverFile) {
+        try {
+          await uploadEventPortada(eventoCreado.id, coverFile)
+        } catch (uploadError) {
+          await loadEvents()
+          setError(`El evento se creó, pero no se pudo subir la foto de portada: ${uploadError.message || 'error desconocido'}. Entra a Configurar para volver a subirla.`)
+          return
+        }
+      }
 
       if (imageFile) {
         try {
@@ -84,6 +97,7 @@ export default function AdminEventsPage() {
       }
 
       setFormData(emptyForm)
+      setCoverFile(null)
       setImageFile(null)
       setImageInputKey((prev) => prev + 1)
       await loadEvents()
@@ -143,6 +157,41 @@ export default function AdminEventsPage() {
                 className={inputClass()}
               />
             </Field>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <h3 className="font-bold text-slate-900">Foto de portada</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Esta foto aparece en la ventana principal, dentro de las tarjetas de eventos. Usa una foto horizontal de corredores, salida o meta.
+              </p>
+
+              <div className="mt-4 space-y-4">
+                <Field label="URL de foto opcional">
+                  <input
+                    name="imagen_portada"
+                    value={formData.imagen_portada}
+                    onChange={handleChange}
+                    placeholder="https://... o /uploads/eventos/portada.png"
+                    className={inputClass()}
+                  />
+                </Field>
+
+                <Field label="Subir foto de portada">
+                  <input
+                    key={`cover-${imageInputKey}`}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
+                    className={inputClass()}
+                  />
+                </Field>
+
+                {coverFile && (
+                  <p className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-600">
+                    Foto seleccionada: {coverFile.name}
+                  </p>
+                )}
+              </div>
+            </div>
 
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
               <h3 className="font-bold text-slate-900">Convocatoria del evento</h3>
@@ -212,11 +261,11 @@ export default function AdminEventsPage() {
             <div className="mt-6 space-y-4">
               {eventos.map((evento) => (
                 <div key={evento.id} className="overflow-hidden rounded-2xl border border-slate-200">
-                  {evento.imagen_convocatoria ? (
-                    <img src={getApiAssetUrl(evento.imagen_convocatoria)} alt={evento.nombre} className="h-44 w-full object-cover" />
+                  {evento.imagen_portada || evento.imagen_convocatoria ? (
+                    <img src={getApiAssetUrl(evento.imagen_portada || evento.imagen_convocatoria)} alt={evento.nombre} className="h-44 w-full object-cover" />
                   ) : (
                     <div className="flex h-28 items-center justify-center bg-slate-50 text-sm font-semibold text-slate-400">
-                      Sin convocatoria
+                      Sin foto
                     </div>
                   )}
                   <div className="p-5">

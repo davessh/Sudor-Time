@@ -28,9 +28,9 @@ export default function Hero({
       <div className="absolute inset-x-0 bottom-0 h-px bg-white/10" />
 
       <div className="relative border-b border-white/10 bg-black/35 shadow-2xl shadow-black/20 backdrop-blur-md">
-        <div className="page-container flex min-h-16 flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        <div className="page-container flex min-h-16 flex-col gap-2 py-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <Link to="/" className="flex items-center justify-center lg:justify-start" aria-label="SudorTime inicio">
-            <img src="/sudortime.png" alt="SudorTime" className="h-16 w-auto object-contain drop-shadow-2xl sm:h-[4.5rem] lg:h-20" />
+            <img src="/sudortime.png" alt="SudorTime" className="h-20 w-auto object-contain drop-shadow-2xl sm:h-24 lg:h-28" />
           </Link>
 
           <nav className="flex flex-wrap items-center justify-center gap-y-2 text-xs font-black tracking-wide text-white/90 sm:text-sm">
@@ -57,20 +57,19 @@ export default function Hero({
         </div>
       </div>
 
-      <div className="page-container relative flex min-h-[300px] flex-col items-center justify-center py-10 text-center sm:min-h-[340px] sm:py-12 lg:min-h-[360px]">
+      <div className="page-container relative flex min-h-[245px] flex-col items-center justify-center py-8 text-center sm:min-h-[275px] sm:py-9 lg:min-h-[300px]">
         <div className="max-w-3xl animate-[fadeUp_.55s_ease-out]">
-          <p className="eyebrow text-red-100">SudorTime</p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
+          <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
             Encuentra tu próxima carrera
           </h1>
 
-          <p className="mx-auto mt-4 max-w-2xl text-sm font-medium leading-6 text-white/82 sm:text-base lg:text-lg">
+          <p className="mx-auto mt-3 max-w-2xl text-sm font-medium leading-6 text-white/82 sm:text-base">
             Inscripciones en línea para eventos deportivos en Mexicali y la región.
           </p>
         </div>
 
         <form
-          className="mt-7 grid w-full max-w-4xl gap-3 rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md md:grid-cols-[1.35fr_0.8fr_0.8fr]"
+          className="mt-6 grid w-full max-w-4xl gap-3 rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md md:grid-cols-[1.35fr_0.8fr_0.8fr]"
           onSubmit={(event) => event.preventDefault()}
         >
           <label className="hero-field">

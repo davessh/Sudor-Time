@@ -40,6 +40,16 @@ export function uploadEventConvocatoria(eventId, file) {
   })
 }
 
+export function uploadEventPortada(eventId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest(`/events/${eventId}/upload-portada`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
 export function uploadEventPlayera(eventId, file) {
   const formData = new FormData()
   formData.append('file', file)

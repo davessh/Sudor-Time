@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getApiAssetUrl } from '../../api/client'
-import { getEventSetup, updateEvent, uploadEventConvocatoria, uploadEventMedalla, uploadEventPlayera } from '../../api/events'
+import { getEventSetup, updateEvent, uploadEventConvocatoria, uploadEventMedalla, uploadEventPlayera, uploadEventPortada } from '../../api/events'
 import { createModality, deleteModality } from '../../api/modalities'
 import { createCategory, deleteCategory } from '../../api/categories'
 import { createProduct, deleteProduct } from '../../api/products'
@@ -17,6 +17,7 @@ const initialEventForm = {
   hora_salida: '',
   organizador: '',
   inscripciones_abiertas: true,
+  imagen_portada: '',
   imagen_convocatoria: '',
   imagen_playera: '',
   imagen_medalla: '',
@@ -116,6 +117,7 @@ export default function AdminEventSetupPage() {
   const [categoryForm, setCategoryForm] = useState(initialCategoryForm)
   const [productForm, setProductForm] = useState(initialProductForm)
   const [shirtForm, setShirtForm] = useState(initialShirtForm)
+  const [coverImageFile, setCoverImageFile] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [shirtImageFile, setShirtImageFile] = useState(null)
   const [medalImageFile, setMedalImageFile] = useState(null)
@@ -145,6 +147,7 @@ export default function AdminEventSetupPage() {
         hora_salida: data.hora_salida || '',
         organizador: data.organizador || '',
         inscripciones_abiertas: Boolean(data.inscripciones_abiertas),
+        imagen_portada: data.imagen_portada || '',
         imagen_convocatoria: data.imagen_convocatoria || '',
         imagen_playera: data.imagen_playera || '',
         imagen_medalla: data.imagen_medalla || '',
@@ -224,6 +227,7 @@ export default function AdminEventSetupPage() {
         hora_salida: eventForm.hora_salida.trim() || null,
         organizador: eventForm.organizador.trim() || null,
         inscripciones_abiertas: eventForm.inscripciones_abiertas,
+        imagen_portada: eventForm.imagen_portada.trim() || null,
         imagen_convocatoria: eventForm.imagen_convocatoria.trim() || null,
         imagen_playera: eventForm.imagen_playera.trim() || null,
         imagen_medalla: eventForm.imagen_medalla.trim() || null,
@@ -252,6 +256,26 @@ export default function AdminEventSetupPage() {
       showSuccess('Convocatoria subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la convocatoria')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadCoverImage(e) {
+    e.preventDefault()
+    if (!coverImageFile) {
+      setError('Selecciona una foto de portada primero.')
+      return
+    }
+
+    try {
+      setSaving('cover-image')
+      await uploadEventPortada(id, coverImageFile)
+      setCoverImageFile(null)
+      await loadSetup()
+      showSuccess('Foto de portada subida correctamente.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la foto de portada')
     } finally {
       setSaving('')
     }
@@ -475,6 +499,11 @@ export default function AdminEventSetupPage() {
                 </Field>
               </div>
               <div className="md:col-span-2">
+                <Field label="URL de foto de portada">
+                  <input name="imagen_portada" value={eventForm.imagen_portada} onChange={handleEventChange} placeholder="/uploads/eventos/portada.png o https://..." className={inputClass()} />
+                </Field>
+              </div>
+              <div className="md:col-span-2">
                 <Field label="URL de imagen de convocatoria">
                   <input name="imagen_convocatoria" value={eventForm.imagen_convocatoria} onChange={handleEventChange} placeholder="/uploads/eventos/imagen.png o https://..." className={inputClass()} />
                 </Field>
@@ -609,6 +638,23 @@ export default function AdminEventSetupPage() {
         </div>
 
         <div className="space-y-8">
+          <SectionCard title="Foto de portada" subtitle="Esta foto aparece en la ventana principal y en las tarjetas de eventos.">
+            {eventForm.imagen_portada ? (
+              <img src={getApiAssetUrl(eventForm.imagen_portada)} alt="Foto de portada del evento" className="mb-5 h-56 w-full rounded-2xl border border-slate-200 object-cover" />
+            ) : (
+              <div className="mb-5 flex h-56 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                Sin foto de portada.
+              </div>
+            )}
+            <form onSubmit={uploadCoverImage} className="space-y-4">
+              <input type="file" accept="image/*" onChange={(e) => setCoverImageFile(e.target.files?.[0] || null)} className={inputClass()} />
+              {coverImageFile && <p className="text-xs font-semibold text-slate-500">{coverImageFile.name}</p>}
+              <button disabled={saving === 'cover-image'} className="w-full rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
+                {saving === 'cover-image' ? 'Subiendo...' : 'Subir foto de portada'}
+              </button>
+            </form>
+          </SectionCard>
+
           <SectionCard title="Convocatoria" subtitle="Puedes subir la imagen desde el admin o pegar una URL manualmente.">
             {eventForm.imagen_convocatoria ? (
               <img src={getApiAssetUrl(eventForm.imagen_convocatoria)} alt="Convocatoria del evento" className="mb-5 w-full rounded-2xl border border-slate-200 object-cover" />

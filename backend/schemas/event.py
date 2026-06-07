@@ -19,6 +19,7 @@ class EventCreate(BaseModel):
     hora_salida: Optional[str] = None
     organizador: Optional[str] = None
     inscripciones_abiertas: bool = True
+    imagen_portada: Optional[str] = None
     imagen_convocatoria: Optional[str] = None
     imagen_playera: Optional[str] = None
     imagen_medalla: Optional[str] = None
@@ -34,6 +35,7 @@ class EventResponse(BaseModel):
     hora_salida: Optional[str] = None
     organizador: Optional[str] = None
     inscripciones_abiertas: bool = True
+    imagen_portada: Optional[str] = None
     imagen_convocatoria: Optional[str] = None
     imagen_playera: Optional[str] = None
     imagen_medalla: Optional[str] = None

@@ -158,8 +158,8 @@ export default function HomePage() {
         onMonthChange={(value) => updateFilter('months', value ? [value] : [])}
       />
 
-      <main id="eventos" className="page-container py-7 sm:py-9 lg:py-11">
-        <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)] lg:items-start xl:grid-cols-[270px_minmax(0,1fr)]">
+      <main id="eventos" className="page-container max-w-[1440px] py-7 sm:py-9 lg:py-11">
+        <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start xl:grid-cols-[245px_minmax(0,1fr)]">
           <aside className="panel p-4 sm:p-5 lg:sticky lg:top-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-black uppercase tracking-tight text-slate-950">Filtros rápidos</h2>

@@ -1,5 +1,6 @@
 import { Calendar, FolderOpen, MapPin, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getApiAssetUrl } from '../api/client'
 
 const RUNNER_IMAGES = ['/eventos/medio2.jpg', '/eventos/prueba1.JPG']
 const FALLBACK_PRICES = ['$230 MXN', '$100 MXN']
@@ -49,7 +50,9 @@ function getEventDistance(evento, index) {
 }
 
 export default function EventCard({ evento, index = 0 }) {
-  const imageSrc = RUNNER_IMAGES[index % RUNNER_IMAGES.length]
+  const imageSrc = evento.imagen_portada
+    ? getApiAssetUrl(evento.imagen_portada)
+    : RUNNER_IMAGES[index % RUNNER_IMAGES.length]
   const price = getEventPrice(evento, index)
   const distance = getEventDistance(evento, index)
   const availability = evento.cupo_disponible || evento.cupos_disponibles || '150 lugares'
@@ -57,7 +60,7 @@ export default function EventCard({ evento, index = 0 }) {
   return (
     <article className="group flex min-h-full flex-col overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white shadow-[0_14px_38px_rgba(15,23,42,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_48px_rgba(15,23,42,0.18)]">
       <Link to={`/evento/${evento.id}`} className="block">
-        <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
+        <div className="relative aspect-[16/11] overflow-hidden bg-slate-100">
           <img
             src={imageSrc}
             alt={`Corredores participando en ${evento.nombre}`}
@@ -75,7 +78,7 @@ export default function EventCard({ evento, index = 0 }) {
         </div>
       </Link>
 
-      <div className="flex flex-1 flex-col p-5 sm:p-6">
+      <div className="flex flex-1 flex-col p-5 sm:p-7">
         <Link to={`/evento/${evento.id}`} className="flex-1">
           <h3 className="line-clamp-2 text-xl font-black leading-tight tracking-tight text-slate-950 transition group-hover:text-[#6A1A24] sm:text-2xl">
             {evento.nombre}
