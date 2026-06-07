@@ -160,7 +160,7 @@ async function handleRfidRequest(req, res) {
       await savePending(payload, `Render status ${renderResponse.status}`);
     }
 
-    res.status(200).send("OK");
+    res.status(200).send("200 OK");
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -170,7 +170,7 @@ async function handleRfidRequest(req, res) {
     );
 
     await savePending(payload, error.message);
-    res.status(200).send("OK");
+    res.status(200).send("200 OK");
   }
 }
 
