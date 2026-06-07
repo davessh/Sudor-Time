@@ -55,33 +55,33 @@ export default function EventCard({ evento, index = 0 }) {
   const availability = evento.cupo_disponible || evento.cupos_disponibles || '150 lugares'
 
   return (
-    <article className="group flex min-h-full flex-col overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.10)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(15,23,42,0.16)]">
+    <article className="group flex min-h-full flex-col overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white shadow-[0_14px_38px_rgba(15,23,42,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_48px_rgba(15,23,42,0.18)]">
       <Link to={`/evento/${evento.id}`} className="block">
-        <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+        <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
           <img
             src={imageSrc}
             alt={`Corredores participando en ${evento.nombre}`}
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent" />
-          <div className="absolute right-3 top-3 flex flex-wrap justify-end gap-2">
-            <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-slate-950 shadow-lg">
+          <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
+            <span className="rounded-lg bg-white px-3.5 py-1.5 text-xs font-black text-slate-950 shadow-lg">
               {price}
             </span>
-            <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-950 shadow-lg">
+            <span className="rounded-lg bg-slate-100 px-3.5 py-1.5 text-xs font-black text-slate-950 shadow-lg">
               {distance}
             </span>
           </div>
         </div>
       </Link>
 
-      <div className="flex flex-1 flex-col p-5">
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
         <Link to={`/evento/${evento.id}`} className="flex-1">
-          <h3 className="line-clamp-2 text-xl font-black leading-tight tracking-tight text-slate-950 transition group-hover:text-[#6A1A24]">
+          <h3 className="line-clamp-2 text-xl font-black leading-tight tracking-tight text-slate-950 transition group-hover:text-[#6A1A24] sm:text-2xl">
             {evento.nombre}
           </h3>
 
-          <div className="mt-4 space-y-2.5 text-sm font-medium text-slate-600">
+          <div className="mt-5 space-y-3 text-sm font-medium text-slate-600">
             <div className="flex items-start gap-2">
               <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-[#6A1A24]" aria-hidden="true" />
               <span>{formatEventDate(evento.fecha)}</span>
