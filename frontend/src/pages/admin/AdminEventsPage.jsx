@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getApiAssetUrl } from '../../api/client'
-import { getEvents, createEvent, uploadEventConvocatoria, uploadEventPortada } from '../../api/events'
+import { getEvents, createEvent, deleteEvent, uploadEventConvocatoria, uploadEventPortada } from '../../api/events'
+import { downloadEventRegistrationsCsv } from '../../api/registrations'
+import { getAdminToken } from '../../auth/adminAuth'
 
 const emptyForm = {
   nombre: '',
@@ -17,6 +19,14 @@ const emptyForm = {
   imagen_convocatoria: '',
 }
 
+const emptyDeleteForm = {
+  adminPassword: '',
+  eventName: '',
+  csvDownloaded: false,
+  confirmBackup: false,
+  confirmPermanent: false,
+}
+
 export default function AdminEventsPage() {
   const navigate = useNavigate()
 
@@ -28,6 +38,10 @@ export default function AdminEventsPage() {
   const [coverFile, setCoverFile] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [imageInputKey, setImageInputKey] = useState(0)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteForm, setDeleteForm] = useState(emptyDeleteForm)
+  const [deleteBusy, setDeleteBusy] = useState('')
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     loadEvents()
@@ -52,6 +66,85 @@ export default function AdminEventsPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }))
+  }
+
+  function openDeleteModal(evento) {
+    setDeleteTarget(evento)
+    setDeleteForm(emptyDeleteForm)
+    setDeleteError('')
+  }
+
+  function closeDeleteModal() {
+    if (deleteBusy) return
+    setDeleteTarget(null)
+    setDeleteForm(emptyDeleteForm)
+    setDeleteError('')
+  }
+
+  function handleDeleteFormChange(e) {
+    const { name, type, checked, value } = e.target
+    setDeleteForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }))
+  }
+
+  async function downloadDeleteBackup() {
+    if (!deleteTarget) return
+
+    try {
+      setDeleteBusy('csv')
+      setDeleteError('')
+      const { blob, filename } = await downloadEventRegistrationsCsv(deleteTarget.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setDeleteForm((prev) => ({ ...prev, csvDownloaded: true, confirmBackup: true }))
+    } catch (err) {
+      setDeleteError(err.message || 'No se pudo descargar el respaldo CSV')
+    } finally {
+      setDeleteBusy('')
+    }
+  }
+
+  async function confirmDeleteEvent() {
+    if (!deleteTarget) return
+
+    const adminToken = getAdminToken()
+    if (!deleteForm.csvDownloaded) {
+      setDeleteError('Primero descarga el CSV de inscritos como respaldo.')
+      return
+    }
+    if (deleteForm.eventName.trim() !== deleteTarget.nombre) {
+      setDeleteError('Escribe el nombre exacto del evento para confirmar.')
+      return
+    }
+    if (!adminToken || deleteForm.adminPassword !== adminToken) {
+      setDeleteError('La clave admin no coincide con la sesión actual.')
+      return
+    }
+    if (!deleteForm.confirmBackup || !deleteForm.confirmPermanent) {
+      setDeleteError('Marca las confirmaciones antes de eliminar.')
+      return
+    }
+
+    try {
+      setDeleteBusy('delete')
+      setDeleteError('')
+      await deleteEvent(deleteTarget.id)
+      setEventos((current) => current.filter((evento) => evento.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      setDeleteForm(emptyDeleteForm)
+    } catch (err) {
+      setDeleteError(err.message || 'No se pudo eliminar el evento')
+    } finally {
+      setDeleteBusy('')
+    }
   }
 
   async function handleSubmit(e) {
@@ -293,6 +386,13 @@ export default function AdminEventsPage() {
                       <Link to={`/evento/${evento.id}`} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:bg-slate-100">
                         Ver público
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(evento)}
+                        className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -301,6 +401,115 @@ export default function AdminEventsPage() {
           )}
         </section>
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-8">
+          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-black uppercase tracking-[0.3em] text-red-700">Zona de riesgo</span>
+              <h2 className="text-2xl font-black text-slate-950">Eliminar evento</h2>
+              <p className="text-sm leading-6 text-slate-600">
+                Esta acción borra el evento y la información relacionada. Para evitar errores, descarga primero el CSV de inscritos y confirma manualmente.
+              </p>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <p className="font-black">{deleteTarget.nombre}</p>
+              <p className="mt-1">{deleteTarget.fecha} · {deleteTarget.lugar}</p>
+            </div>
+
+            {deleteError && (
+              <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-6 space-y-5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-black text-slate-950">1. Respaldo obligatorio</h3>
+                    <p className="mt-1 text-sm text-slate-500">Descarga un CSV con los inscritos actuales antes de borrar.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadDeleteBackup}
+                    disabled={deleteBusy === 'csv'}
+                    className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+                  >
+                    {deleteBusy === 'csv' ? 'Descargando...' : deleteForm.csvDownloaded ? 'CSV descargado' : 'Descargar CSV'}
+                  </button>
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">2. Escribe el nombre exacto del evento</span>
+                <input
+                  name="eventName"
+                  value={deleteForm.eventName}
+                  onChange={handleDeleteFormChange}
+                  placeholder={deleteTarget.nombre}
+                  className={inputClass()}
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">3. Clave admin</span>
+                <input
+                  type="password"
+                  name="adminPassword"
+                  value={deleteForm.adminPassword}
+                  onChange={handleDeleteFormChange}
+                  placeholder="Captura la clave admin de esta sesión"
+                  className={inputClass()}
+                />
+              </label>
+
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="confirmBackup"
+                    checked={deleteForm.confirmBackup}
+                    onChange={handleDeleteFormChange}
+                    className="mt-1 h-4 w-4 accent-red-700"
+                  />
+                  Confirmo que ya descargué el CSV y lo guardaré como respaldo.
+                </label>
+                <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="confirmPermanent"
+                    checked={deleteForm.confirmPermanent}
+                    onChange={handleDeleteFormChange}
+                    className="mt-1 h-4 w-4 accent-red-700"
+                  />
+                  Entiendo que eliminar este evento puede borrar inscritos, configuración y datos relacionados.
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={Boolean(deleteBusy)}
+                className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteEvent}
+                disabled={deleteBusy === 'delete'}
+                className="rounded-2xl bg-red-700 px-5 py-3 text-sm font-black text-white hover:bg-red-800 disabled:opacity-60"
+              >
+                {deleteBusy === 'delete' ? 'Eliminando...' : 'Eliminar definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }

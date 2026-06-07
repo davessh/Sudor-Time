@@ -59,9 +59,9 @@ export default function AdminEventResultsPage() {
   const resultadosFiltrados = useMemo(() => {
     return resultados.filter((resultado) => {
       const nombreCompleto =
-        `${resultado.nombre || ''} ${resultado.apellido || ''}`.toLowerCase()
+        `${resultado.nombre || ''} ${resultado.apellido_paterno || resultado.apellido || ''} ${resultado.apellido_materno || ''}`.toLowerCase()
 
-      const numero = String(resultado.numero || '').toLowerCase()
+      const numero = String(resultado.numero_competidor || resultado.numero || resultado.tag_code || '').toLowerCase()
       const texto = busqueda.toLowerCase().trim()
 
       if (!texto) return true
@@ -178,29 +178,29 @@ export default function AdminEventResultsPage() {
                   className="grid gap-3 px-6 py-5 md:grid-cols-7 md:items-center"
                 >
                   <div className="font-bold text-slate-900">
-                    #{resultado.posicion}
+                    #{resultado.lugar_general || resultado.posicion}
                   </div>
 
                   <div>
                     <p className="font-semibold">
-                      {resultado.nombre || 'Sin nombre'} {resultado.apellido || ''}
+                      {resultado.nombre || 'Sin nombre'} {resultado.apellido_paterno || resultado.apellido || ''} {resultado.apellido_materno || ''}
                     </p>
                     <p className="text-sm text-slate-500 md:hidden">
-                      {resultado.categoria || 'Sin categoría'} ·{' '}
-                      {resultado.distancia || 'Sin distancia'}
+                      {resultado.categoria_nombre || resultado.categoria || 'Sin categoría'} ·{' '}
+                      {resultado.modalidad_nombre || resultado.distancia || 'Sin distancia'}
                     </p>
                   </div>
 
                   <div className="text-slate-700">
-                    {resultado.numero || 'Sin número'}
+                    {resultado.numero_competidor || resultado.numero || 'Sin número'}
                   </div>
 
                   <div className="hidden text-slate-700 md:block">
-                    {resultado.categoria || 'Sin categoría'}
+                    {resultado.categoria_nombre || resultado.categoria || 'Sin categoría'}
                   </div>
 
                   <div className="hidden text-slate-700 md:block">
-                    {resultado.distancia || 'Sin distancia'}
+                    {resultado.modalidad_nombre || resultado.distancia || 'Sin distancia'}
                   </div>
 
                   <div className="font-mono text-sm text-slate-700">
@@ -208,7 +208,7 @@ export default function AdminEventResultsPage() {
                   </div>
 
                   <div className="text-sm text-slate-500">
-                    {formatDateTime(resultado.timestamp)}
+                    {formatDateTime(resultado.meta_corredor || resultado.timestamp)}
                   </div>
                 </div>
               ))}

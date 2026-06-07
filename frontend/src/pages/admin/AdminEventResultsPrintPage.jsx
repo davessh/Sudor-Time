@@ -169,25 +169,25 @@ export default function AdminEventResultsPrintPage() {
                   className="border-b border-slate-200"
                 >
                   <td className="px-2 py-3 font-semibold">
-                    #{resultado.posicion}
+                    #{resultado.lugar_general || resultado.posicion}
                   </td>
                   <td className="px-2 py-3">
-                    {resultado.nombre || 'Sin nombre'} {resultado.apellido || ''}
+                    {resultado.nombre || 'Sin nombre'} {resultado.apellido_paterno || resultado.apellido || ''} {resultado.apellido_materno || ''}
                   </td>
                   <td className="px-2 py-3">
-                    {resultado.numero || 'Sin número'}
+                    {resultado.numero_competidor || resultado.numero || 'Sin número'}
                   </td>
                   <td className="px-2 py-3">
-                    {resultado.categoria || 'Sin categoría'}
+                    {resultado.categoria_nombre || resultado.categoria || 'Sin categoría'}
                   </td>
                   <td className="px-2 py-3">
-                    {resultado.distancia || 'Sin distancia'}
+                    {resultado.modalidad_nombre || resultado.distancia || 'Sin distancia'}
                   </td>
                   <td className="px-2 py-3 font-mono">
                     {resultado.tag_code}
                   </td>
                   <td className="px-2 py-3">
-                    {formatDateTime(resultado.timestamp)}
+                    {formatDateTime(resultado.meta_corredor || resultado.timestamp)}
                   </td>
                 </tr>
               ))}

@@ -4,10 +4,10 @@ import EventCard from '../components/EventCard'
 import EventSkeleton from '../components/EventSkeleton'
 import { getEvents, getEventSetup } from '../api/events'
 import { getSiteSettings } from '../api/siteSettings'
+import { getResultsByEvent } from '../api/results'
 
 const FALLBACK_MONTHS = [3, 4, 5, 6]
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-const BASE_DISTANCES = ['5K', '10K', 'Half']
 
 function normalizeText(value = '') {
   return String(value)
@@ -87,12 +87,23 @@ export default function HomePage() {
         setSiteSettings(settings)
         const enriched = await Promise.all(
           data.map(async (event) => {
+            let setup = event
+            let hasResults = false
+
             try {
-              return await getEventSetup(event.id)
+              setup = await getEventSetup(event.id)
             } catch (setupError) {
               console.warn(`No pudimos cargar filtros para el evento ${event.id}:`, setupError)
-              return event
             }
+
+            try {
+              const results = await getResultsByEvent(event.id)
+              hasResults = Array.isArray(results) && results.length > 0
+            } catch (resultsError) {
+              console.warn(`No pudimos revisar resultados para el evento ${event.id}:`, resultsError)
+            }
+
+            return { ...setup, hasResults }
           }),
         )
         setEventos(enriched)
@@ -120,7 +131,7 @@ export default function HomePage() {
 
   const distanceOptions = useMemo(() => {
     const distances = eventos.flatMap(getEventDistances)
-    return [...new Set([...BASE_DISTANCES, ...distances])]
+    return [...new Set(distances)].filter(Boolean)
   }, [eventos])
 
   const filteredEventos = useMemo(() => {
@@ -159,6 +170,7 @@ export default function HomePage() {
   return (
     <div className="page-shell">
       <Hero
+        subtitle="Inscripciones en línea para eventos deportivos."
         filters={filters}
         distanceOptions={distanceOptions}
         monthOptions={monthOptions}
@@ -172,7 +184,7 @@ export default function HomePage() {
         <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start xl:grid-cols-[245px_minmax(0,1fr)]">
           <aside className="panel p-4 sm:p-5 lg:sticky lg:top-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-black uppercase tracking-tight text-slate-950">Filtros rápidos</h2>
+              <h2 className="text-sm font-black uppercase tracking-tight text-slate-950">Búsqueda rápida</h2>
               {hasActiveFilters && (
                 <button
                   type="button"
@@ -206,19 +218,23 @@ export default function HomePage() {
 
             <div className="border-b border-slate-200 py-5">
               <p className="text-sm font-black text-slate-950">Distancia</p>
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                {distanceOptions.map((distance) => (
-                  <label key={distance} className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={filters.distances.includes(distance)}
-                      className="h-4 w-4 rounded border-slate-300 accent-[#6A1A24]"
-                      onChange={() => updateFilter('distances', toggleValue(filters.distances, distance))}
-                    />
-                    {distance}
-                  </label>
-                ))}
-              </div>
+              {distanceOptions.length > 0 ? (
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                  {distanceOptions.map((distance) => (
+                    <label key={distance} className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={filters.distances.includes(distance)}
+                        className="h-4 w-4 rounded border-slate-300 accent-[#6A1A24]"
+                        onChange={() => updateFilter('distances', toggleValue(filters.distances, distance))}
+                      />
+                      {distance}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm font-semibold text-slate-500">Sin distancias configuradas.</p>
+              )}
             </div>
 
             <div className="pt-5">
@@ -276,7 +292,7 @@ export default function HomePage() {
 
             {!loading && !error && (
               <p className="mt-8 text-center text-sm font-semibold text-slate-700">
-                {filteredEventos.length} {filteredEventos.length === 1 ? 'evento disponible' : 'eventos disponibles'} - ¡Inscripción fácil y rápida en segundos!
+                {filteredEventos.length} {filteredEventos.length === 1 ? 'evento disponible' : 'eventos disponibles'}
               </p>
             )}
           </section>

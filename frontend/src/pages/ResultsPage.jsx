@@ -32,17 +32,18 @@ export default function ResultsPage() {
 
         const resultadosAdaptados = resultadosData.map((corredor, index) => ({
           id:
+            corredor.participant_id ??
             corredor.athlete_id ??
-            `${corredor.tag_code ?? 'tag'}-${corredor.posicion ?? index + 1}`,
-          athlete_id: corredor.athlete_id,
-          posicion: corredor.posicion ?? index + 1,
-          numero: corredor.tag_code || corredor.numero || `A-${index + 1}`,
+            `${corredor.tag_code ?? 'tag'}-${corredor.lugar_general ?? corredor.posicion ?? index + 1}`,
+          athlete_id: corredor.participant_id ?? corredor.athlete_id,
+          posicion: corredor.lugar_general ?? corredor.posicion ?? index + 1,
+          numero: corredor.numero_competidor || corredor.tag_code || corredor.numero || `A-${index + 1}`,
           nombre:
-            `${corredor.nombre ?? ''} ${corredor.apellido ?? ''}`.trim() ||
+            `${corredor.nombre ?? ''} ${corredor.apellido_paterno ?? corredor.apellido ?? ''} ${corredor.apellido_materno ?? ''}`.trim() ||
             'Sin nombre',
           categoria: corredor.categoria || 'Sin categoría',
-          rama: corredor.rama || 'Por definir',
-          tiempo: formatTimestamp(corredor.timestamp),
+          rama: corredor.sexo || corredor.rama || 'Por definir',
+          tiempo: corredor.tiempo_oficial_texto || corredor.tiempo_chip_texto || formatTimestamp(corredor.meta_corredor || corredor.timestamp),
           estado: corredor.estado || 'Finalizado',
         }))
 

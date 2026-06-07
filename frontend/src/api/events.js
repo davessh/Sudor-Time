@@ -30,6 +30,12 @@ export function updateEvent(eventId, payload) {
   })
 }
 
+export function deleteEvent(eventId) {
+  return apiRequest(`/events/${eventId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function uploadEventConvocatoria(eventId, file) {
   const formData = new FormData()
   formData.append('file', file)
