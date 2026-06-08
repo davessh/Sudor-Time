@@ -74,9 +74,27 @@ export default function PaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken])
 
-  async function loadStatus() {
+  useEffect(() => {
+    if (!returnStatus || !payment || ['confirmed', 'cancelled', 'expired'].includes(payment.status)) {
+      return undefined
+    }
+
+    let attempts = 0
+    const interval = window.setInterval(() => {
+      attempts += 1
+      loadStatus({ silent: true })
+      if (attempts >= 18) {
+        window.clearInterval(interval)
+      }
+    }, 5000)
+
+    return () => window.clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnStatus, payment?.status])
+
+  async function loadStatus({ silent = false } = {}) {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError('')
       const data = await getRegistrationPaymentStatus(accessToken)
       setPayment(data)
@@ -89,7 +107,7 @@ export default function PaymentPage() {
     } catch (err) {
       setError(err.message || 'No se pudo consultar el estado de pago')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 

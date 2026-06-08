@@ -330,6 +330,77 @@ def _apply_payment_to_registration(db: Session, registration: Registration, paym
         registration.cancelled_at = datetime.now(timezone.utc)
 
 
+async def _find_latest_mercadopago_payment(registration: Registration) -> Optional[dict[str, Any]]:
+    if not registration.payment_preference_id and not registration.payment_reference:
+        return None
+
+    try:
+        search = await _mercadopago_request(
+            "GET",
+            "/v1/payments/search",
+            params={
+                "external_reference": str(registration.id),
+                "sort": "date_created",
+                "criteria": "desc",
+            },
+        )
+    except HTTPException as exc:
+        print(f"No se pudo reconciliar pago de registro {registration.id}: {exc.detail}")
+        return None
+
+    results = search.get("results") or []
+    if not results:
+        return None
+
+    candidate = next((payment for payment in results if payment.get("status") == "approved"), results[0])
+    payment_id = candidate.get("id")
+    if not payment_id:
+        return candidate
+
+    try:
+        return await _mercadopago_request("GET", f"/v1/payments/{payment_id}")
+    except HTTPException as exc:
+        print(f"No se pudo consultar pago {payment_id} de registro {registration.id}: {exc.detail}")
+        return candidate
+
+
+async def _reconcile_registration_payment(db: Session, registration: Registration):
+    if registration.status == "confirmed" or registration.payment_status == "paid":
+        return
+
+    payment = await _find_latest_mercadopago_payment(registration)
+    if not payment:
+        return
+
+    paid_at = _parse_mp_datetime(payment.get("date_approved")) or datetime.now(timezone.utc)
+    expires_at = _as_utc(registration.expires_at)
+    should_expire_before_apply = (
+        payment.get("status") != "approved"
+        or bool(expires_at and paid_at > expires_at)
+    )
+
+    if should_expire_before_apply:
+        expire_registration_if_needed(db, registration)
+
+    was_confirmed = registration.status == "confirmed"
+    _apply_payment_to_registration(db, registration, payment)
+    db.commit()
+    db.refresh(registration)
+
+    if (
+        not was_confirmed
+        and registration.status == "confirmed"
+        and not registration.confirmation_email_sent_at
+    ):
+        try:
+            if send_registration_confirmation_email(registration):
+                registration.confirmation_email_sent_at = datetime.now(timezone.utc)
+                db.commit()
+                db.refresh(registration)
+        except Exception as exc:
+            print(f"No se pudo enviar correo de confirmacion para registro {registration.id}: {exc}")
+
+
 @router.post("/mercadopago/create-preference", response_model=MercadoPagoPreferenceResponse)
 async def crear_preferencia_mercadopago(
     data: MercadoPagoPreferenceCreate,
@@ -456,8 +527,9 @@ def obtener_estado_pago_registro(registration_id: int, db: Session = Depends(get
 
 
 @router.get("/registrations/access/{access_token}/status", response_model=RegistrationPaymentStatusResponse)
-def obtener_estado_pago_registro_por_token(access_token: str, db: Session = Depends(get_db)):
+async def obtener_estado_pago_registro_por_token(access_token: str, db: Session = Depends(get_db)):
     registration = get_public_registration_by_token(db, access_token)
+    await _reconcile_registration_payment(db, registration)
     if registration.status == "confirmed" and assign_competitor_number_if_needed(db, registration):
         db.commit()
         db.refresh(registration)
