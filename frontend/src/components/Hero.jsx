@@ -1,4 +1,4 @@
-import { ChevronDown, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getApiAssetUrl } from '../api/client'
 
@@ -15,16 +15,10 @@ export default function Hero({
   title = 'Encuentra tu próxima carrera',
   subtitle = 'Inscripciones en línea para eventos deportivos en Mexicali y la región.',
   filters = { query: '', distances: [], months: [] },
-  distanceOptions = [],
-  monthOptions = [],
   siteSettings,
   showSearch = true,
   onQueryChange,
-  onDistanceChange,
-  onMonthChange,
 }) {
-  const selectedDistance = filters.distances?.length === 1 ? filters.distances[0] : ''
-  const selectedMonth = filters.months?.length === 1 ? filters.months[0] : ''
   const settingsLoaded = siteSettings !== undefined
   const heroImageSrc = siteSettings?.hero_background_image
     ? getApiAssetUrl(siteSettings.hero_background_image)
@@ -116,7 +110,7 @@ export default function Hero({
 
         {showSearch && (
           <form
-            className="mt-6 hidden w-full max-w-4xl gap-3 rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md sm:grid md:grid-cols-[1.35fr_0.8fr_0.8fr]"
+            className="mt-6 hidden w-full max-w-2xl rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md sm:block"
             onSubmit={(event) => event.preventDefault()}
           >
             <label className="hero-field">
@@ -131,35 +125,6 @@ export default function Hero({
               />
             </label>
 
-            <label className="hero-field">
-              <select
-                value={selectedDistance}
-                className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-white outline-none"
-                aria-label="Filtrar por distancia"
-                onChange={(event) => onDistanceChange?.(event.target.value)}
-              >
-                <option value="">Distancia</option>
-                {distanceOptions.map((distance) => (
-                  <option key={distance} value={distance}>{distance}</option>
-                ))}
-              </select>
-              <ChevronDown className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
-            </label>
-
-            <label className="hero-field">
-              <select
-                value={selectedMonth}
-                className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-white outline-none"
-                aria-label="Filtrar por mes"
-                onChange={(event) => onMonthChange?.(event.target.value)}
-              >
-                <option value="">Mes</option>
-                {monthOptions.map((month) => (
-                  <option key={month.value} value={month.value}>{month.longLabel}</option>
-                ))}
-              </select>
-              <ChevronDown className="h-4 w-4 shrink-0 text-white/70" aria-hidden="true" />
-            </label>
           </form>
         )}
       </div>

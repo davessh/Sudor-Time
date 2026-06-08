@@ -182,12 +182,8 @@ export default function HomePage() {
       <Hero
         subtitle="Inscripciones en línea para eventos deportivos."
         filters={filters}
-        distanceOptions={distanceOptions}
-        monthOptions={monthOptions}
         siteSettings={siteSettings}
         onQueryChange={(value) => updateFilter('query', value)}
-        onDistanceChange={(value) => updateFilter('distances', value ? [value] : [])}
-        onMonthChange={(value) => updateFilter('months', value ? [value] : [])}
       />
 
       <main id="eventos" className="page-container max-w-[1440px] py-3 sm:py-7 lg:py-11">
