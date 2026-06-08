@@ -23,6 +23,7 @@ class RegistrationPaymentStatusResponse(BaseModel):
     registration_id: int
     event_id: int
     event_nombre: str
+    event_imagen_dorsal: Optional[str] = None
     participante_nombre: str
     modalidad_nombre: str
     producto_nombre: Optional[str] = None

@@ -75,3 +75,13 @@ export function uploadEventMedalla(eventId, file) {
     body: formData,
   })
 }
+
+export function uploadEventDorsal(eventId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest(`/events/${eventId}/upload-dorsal`, {
+    method: 'POST',
+    body: formData,
+  })
+}

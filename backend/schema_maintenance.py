@@ -28,6 +28,7 @@ EVENT_COLUMNS = {
     "imagen_portada": "TEXT",
     "imagen_playera": "TEXT",
     "imagen_medalla": "TEXT",
+    "imagen_dorsal": "TEXT",
 }
 
 EVENT_MODALITY_COLUMNS = {

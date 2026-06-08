@@ -87,6 +87,7 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
         "imagen_convocatoria": event.imagen_convocatoria,
         "imagen_playera": event.imagen_playera,
         "imagen_medalla": event.imagen_medalla,
+        "imagen_dorsal": event.imagen_dorsal,
         "has_shirt_sizes": len(active_shirt_sizes) > 0,
         "modalities": [
             {
@@ -220,6 +221,15 @@ async def subir_medalla_evento(
     db: Session = Depends(get_db),
 ):
     return await _guardar_imagen_evento(event_id, file, db, "imagen_medalla", "medalla")
+
+
+@router.post("/{event_id}/upload-dorsal", response_model=EventResponse, dependencies=[Depends(require_admin)])
+async def subir_dorsal_evento(
+    event_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    return await _guardar_imagen_evento(event_id, file, db, "imagen_dorsal", "dorsal")
 
 
 @router.get("/{event_id}/stats", response_model=EventStatsResponse, dependencies=[Depends(require_admin)])

@@ -123,6 +123,7 @@ def _registration_payment_status(registration: Registration) -> RegistrationPaym
         registration_id=registration.id,
         event_id=registration.event_id,
         event_nombre=registration.event.nombre,
+        event_imagen_dorsal=registration.event.imagen_dorsal,
         participante_nombre=participant_name,
         modalidad_nombre=registration.modality.nombre if registration.modality else "Sin modalidad",
         producto_nombre=registration.product.nombre if registration.product else None,

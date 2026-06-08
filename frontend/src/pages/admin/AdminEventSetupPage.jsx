@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getApiAssetUrl } from '../../api/client'
-import { getEventSetup, updateEvent, uploadEventConvocatoria, uploadEventMedalla, uploadEventPlayera, uploadEventPortada } from '../../api/events'
+import { getEventSetup, updateEvent, uploadEventConvocatoria, uploadEventDorsal, uploadEventMedalla, uploadEventPlayera, uploadEventPortada } from '../../api/events'
 import { createModality, deleteModality } from '../../api/modalities'
 import { createCategory, deleteCategory } from '../../api/categories'
 import { createProduct, deleteProduct } from '../../api/products'
@@ -21,6 +21,7 @@ const initialEventForm = {
   imagen_convocatoria: '',
   imagen_playera: '',
   imagen_medalla: '',
+  imagen_dorsal: '',
 }
 
 const initialModalityForm = {
@@ -121,6 +122,7 @@ export default function AdminEventSetupPage() {
   const [imageFile, setImageFile] = useState(null)
   const [shirtImageFile, setShirtImageFile] = useState(null)
   const [medalImageFile, setMedalImageFile] = useState(null)
+  const [bibImageFile, setBibImageFile] = useState(null)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
@@ -151,6 +153,7 @@ export default function AdminEventSetupPage() {
         imagen_convocatoria: data.imagen_convocatoria || '',
         imagen_playera: data.imagen_playera || '',
         imagen_medalla: data.imagen_medalla || '',
+        imagen_dorsal: data.imagen_dorsal || '',
       })
     } catch (err) {
       setError(err.message || 'No se pudo cargar la configuración del evento')
@@ -231,6 +234,7 @@ export default function AdminEventSetupPage() {
         imagen_convocatoria: eventForm.imagen_convocatoria.trim() || null,
         imagen_playera: eventForm.imagen_playera.trim() || null,
         imagen_medalla: eventForm.imagen_medalla.trim() || null,
+        imagen_dorsal: eventForm.imagen_dorsal.trim() || null,
       })
       await loadSetup()
       showSuccess('Datos generales actualizados.')
@@ -316,6 +320,26 @@ export default function AdminEventSetupPage() {
       showSuccess('Imagen de medalla subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la imagen de medalla')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadBibImage(e) {
+    e.preventDefault()
+    if (!bibImageFile) {
+      setError('Selecciona una imagen base de dorsal primero.')
+      return
+    }
+
+    try {
+      setSaving('bib-image')
+      await uploadEventDorsal(id, bibImageFile)
+      setBibImageFile(null)
+      await loadSetup()
+      showSuccess('Base de dorsal subida correctamente.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la base de dorsal')
     } finally {
       setSaving('')
     }
@@ -518,6 +542,11 @@ export default function AdminEventSetupPage() {
                   <input name="imagen_medalla" value={eventForm.imagen_medalla} onChange={handleEventChange} placeholder="/uploads/eventos/medalla.png o https://..." className={inputClass()} />
                 </Field>
               </div>
+              <div className="md:col-span-2">
+                <Field label="URL de base de dorsal">
+                  <input name="imagen_dorsal" value={eventForm.imagen_dorsal} onChange={handleEventChange} placeholder="/uploads/eventos/dorsal.png o https://..." className={inputClass()} />
+                </Field>
+              </div>
               <label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 md:col-span-2">
                 <input type="checkbox" name="inscripciones_abiertas" checked={eventForm.inscripciones_abiertas} onChange={handleEventChange} />
                 Inscripciones abiertas
@@ -694,6 +723,19 @@ export default function AdminEventSetupPage() {
                 buttonText="Subir medalla"
               />
             </div>
+          </SectionCard>
+
+          <SectionCard title="Base de dorsal" subtitle="Opcional. Sube el diseño del número de esta carrera; si no hay uno, SudorTime generará un dorsal default.">
+            <AssetUpload
+              title="Dorsal"
+              imageUrl={eventForm.imagen_dorsal}
+              emptyText="Sin base de dorsal. Se usará el diseño default."
+              file={bibImageFile}
+              onFileChange={setBibImageFile}
+              onSubmit={uploadBibImage}
+              saving={saving === 'bib-image'}
+              buttonText="Subir base de dorsal"
+            />
           </SectionCard>
 
           <SectionCard title="Tallas de playera" subtitle="El registro público solo mostrará tallas activas con stock disponible.">

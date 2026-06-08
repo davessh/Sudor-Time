@@ -23,6 +23,7 @@ class Event(Base):
     imagen_convocatoria = Column(Text, nullable=True)
     imagen_playera = Column(Text, nullable=True)
     imagen_medalla = Column(Text, nullable=True)
+    imagen_dorsal = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

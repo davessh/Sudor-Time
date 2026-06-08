@@ -23,6 +23,7 @@ class EventCreate(BaseModel):
     imagen_convocatoria: Optional[str] = None
     imagen_playera: Optional[str] = None
     imagen_medalla: Optional[str] = None
+    imagen_dorsal: Optional[str] = None
 
 
 class EventResponse(BaseModel):
@@ -39,6 +40,7 @@ class EventResponse(BaseModel):
     imagen_convocatoria: Optional[str] = None
     imagen_playera: Optional[str] = None
     imagen_medalla: Optional[str] = None
+    imagen_dorsal: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
