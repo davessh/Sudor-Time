@@ -74,25 +74,25 @@ export default function Hero({
           WebkitBackdropFilter: `blur(${navbarBlur}px)`,
         }}
       >
-        <div className="page-container flex min-h-16 flex-col gap-2 py-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        <div className="page-container flex min-h-14 flex-col gap-2 py-2 sm:min-h-16 sm:py-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <Link to="/" className="flex items-center justify-center lg:justify-start" aria-label="SudorTime inicio">
-            <img src="/sudortime.png" alt="SudorTime" className="h-20 w-auto object-contain drop-shadow-2xl sm:h-24 lg:h-28" />
+            <img src="/sudortime.png" alt="SudorTime" className="h-14 w-auto object-contain drop-shadow-2xl sm:h-24 lg:h-28" />
           </Link>
 
-          <nav className="flex flex-wrap items-center justify-center gap-y-2 text-xs font-black tracking-wide text-white/90 sm:text-sm">
+          <nav className="grid w-full grid-cols-4 gap-1 text-center text-[0.68rem] font-black uppercase tracking-wide text-white/90 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-center sm:gap-y-2 sm:text-sm">
             {navItems.map((item, index) => (
               <a
                 key={item.label}
                 href={item.href}
-                className="px-2.5 transition hover:text-white lg:px-4"
+                className="rounded-lg bg-white/5 px-1 py-1.5 transition hover:bg-white/10 hover:text-white sm:bg-transparent sm:px-2.5 sm:py-0 sm:hover:bg-transparent lg:px-4"
               >
-                {index > 0 && <span className="mr-2.5 text-white/25 lg:mr-4">|</span>}
+                {index > 0 && <span className="mr-2.5 hidden text-white/25 sm:inline lg:mr-4">|</span>}
                 {item.label}
               </a>
             ))}
           </nav>
 
-          <div className="flex items-center justify-center gap-2 sm:gap-3">
+          <div className="grid w-full max-w-sm grid-cols-2 gap-2 self-center sm:flex sm:w-auto sm:max-w-none sm:items-center sm:justify-center sm:gap-3">
             <Link to="/admin/login" className="btn-nav-outline">
               Iniciar sesión
             </Link>
@@ -103,20 +103,20 @@ export default function Hero({
         </div>
       </div>
 
-      <div className={`page-container relative flex min-h-[220px] flex-col items-center justify-center py-8 text-center sm:min-h-[245px] sm:py-9 ${heroMinHeight}`}>
+      <div className={`page-container relative flex min-h-[168px] flex-col items-center justify-center py-5 text-center sm:min-h-[245px] sm:py-9 ${heroMinHeight}`}>
         <div className="max-w-3xl animate-[fadeUp_.55s_ease-out]">
-          <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
+          <h1 className="text-[1.55rem] font-black leading-tight tracking-tight text-white sm:text-3xl lg:text-4xl">
             {title}
           </h1>
 
-          <p className="mx-auto mt-3 max-w-2xl text-sm font-medium leading-6 text-white/82 sm:text-base">
+          <p className="mx-auto mt-2 max-w-2xl text-sm font-medium leading-6 text-white/82 sm:mt-3 sm:text-base">
             {subtitle}
           </p>
         </div>
 
         {showSearch && (
           <form
-            className="mt-6 grid w-full max-w-4xl gap-3 rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md md:grid-cols-[1.35fr_0.8fr_0.8fr]"
+            className="mt-6 hidden w-full max-w-4xl gap-3 rounded-2xl border border-white/20 bg-black/30 p-3 shadow-2xl shadow-black/30 backdrop-blur-md sm:grid md:grid-cols-[1.35fr_0.8fr_0.8fr]"
             onSubmit={(event) => event.preventDefault()}
           >
             <label className="hero-field">

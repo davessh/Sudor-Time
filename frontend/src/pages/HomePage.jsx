@@ -5,7 +5,7 @@ import EventSkeleton from '../components/EventSkeleton'
 import { getEvents, getEventSetup } from '../api/events'
 import { getSiteSettings } from '../api/siteSettings'
 import { getResultsByEvent } from '../api/results'
-import { ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, Search, SlidersHorizontal } from 'lucide-react'
 
 const FALLBACK_MONTHS = [3, 4, 5, 6]
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -190,12 +190,12 @@ export default function HomePage() {
         onMonthChange={(value) => updateFilter('months', value ? [value] : [])}
       />
 
-      <main id="eventos" className="page-container max-w-[1440px] py-4 sm:py-7 lg:py-11">
-        <div className="grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[245px_minmax(0,1fr)]">
+      <main id="eventos" className="page-container max-w-[1440px] py-3 sm:py-7 lg:py-11">
+        <div className="grid gap-3 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[245px_minmax(0,1fr)]">
           <aside className="panel overflow-hidden lg:sticky lg:top-4">
             <button
               type="button"
-              className="flex min-h-14 w-full items-center justify-between gap-3 px-4 text-left lg:hidden"
+              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 text-left lg:hidden"
               aria-expanded={mobileFiltersOpen}
               aria-controls="quick-search-panel"
               onClick={() => setMobileFiltersOpen((open) => !open)}
@@ -238,62 +238,79 @@ export default function HomePage() {
             </div>
 
             <div id="quick-search-panel" className={`${mobileFiltersOpen ? 'block' : 'hidden'} border-t border-slate-100 px-4 pb-4 lg:block lg:border-t-0 lg:px-5 lg:pb-5`}>
-            <div className="mt-4 border-b border-slate-200 pb-5 lg:mt-5">
-              <label htmlFor="price-filter" className="text-sm font-black text-slate-950">
-                Precio
-              </label>
-              <div className="mt-3 flex items-center justify-between text-sm font-semibold text-slate-700">
-                <span>$0</span>
-                <span>${filters.maxPrice} MXN</span>
+              <div className="border-b border-slate-200 py-4 lg:hidden">
+                <label htmlFor="mobile-event-search" className="text-sm font-black text-slate-950">
+                  Evento o ciudad
+                </label>
+                <div className="mt-2 flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 transition focus-within:border-[#6A1A24]/45 focus-within:bg-white focus-within:ring-4 focus-within:ring-[#6A1A24]/10">
+                  <Search className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+                  <input
+                    id="mobile-event-search"
+                    type="search"
+                    value={filters.query || ''}
+                    placeholder="Buscar evento..."
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                    onChange={(event) => updateFilter('query', event.target.value)}
+                  />
+                </div>
               </div>
-              <input
-                id="price-filter"
-                type="range"
-                min="0"
-                max="500"
-                step="10"
-                value={filters.maxPrice}
-                className="mt-3 w-full accent-[#6A1A24]"
-                onChange={(event) => updateFilter('maxPrice', event.target.value)}
-              />
-            </div>
 
-            <div className="border-b border-slate-200 py-5">
-              <p className="text-sm font-black text-slate-950">Distancia</p>
-              {distanceOptions.length > 0 ? (
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                  {distanceOptions.map((distance) => (
-                    <label key={distance} className="flex items-center gap-3 text-sm font-medium text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={filters.distances.includes(distance)}
-                        className="h-4 w-4 rounded border-slate-300 accent-[#6A1A24]"
-                        onChange={() => updateFilter('distances', toggleValue(filters.distances, distance))}
-                      />
-                      {distance}
-                    </label>
+              <div className="mt-4 border-b border-slate-200 pb-5 lg:mt-5">
+                <label htmlFor="price-filter" className="text-sm font-black text-slate-950">
+                  Precio
+                </label>
+                <div className="mt-3 flex items-center justify-between text-sm font-semibold text-slate-700">
+                  <span>$0</span>
+                  <span>${filters.maxPrice} MXN</span>
+                </div>
+                <input
+                  id="price-filter"
+                  type="range"
+                  min="0"
+                  max="500"
+                  step="10"
+                  value={filters.maxPrice}
+                  className="mt-3 w-full accent-[#6A1A24]"
+                  onChange={(event) => updateFilter('maxPrice', event.target.value)}
+                />
+              </div>
+
+              <div className="border-b border-slate-200 py-5">
+                <p className="text-sm font-black text-slate-950">Distancia</p>
+                {distanceOptions.length > 0 ? (
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                    {distanceOptions.map((distance) => (
+                      <label key={distance} className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={filters.distances.includes(distance)}
+                          className="h-4 w-4 rounded border-slate-300 accent-[#6A1A24]"
+                          onChange={() => updateFilter('distances', toggleValue(filters.distances, distance))}
+                        />
+                        {distance}
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm font-semibold text-slate-500">Sin distancias configuradas.</p>
+                )}
+              </div>
+
+              <div className="pt-5">
+                <p className="text-sm font-black text-slate-950">Fecha</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+                  {monthOptions.map((month) => (
+                    <button
+                      key={month.value}
+                      type="button"
+                      className={filters.months.includes(month.value) ? 'quick-month-active' : 'quick-month'}
+                      onClick={() => updateFilter('months', toggleValue(filters.months, month.value))}
+                    >
+                      {month.label}
+                    </button>
                   ))}
                 </div>
-              ) : (
-                <p className="mt-3 text-sm font-semibold text-slate-500">Sin distancias configuradas.</p>
-              )}
-            </div>
-
-            <div className="pt-5">
-              <p className="text-sm font-black text-slate-950">Fecha</p>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
-                {monthOptions.map((month) => (
-                  <button
-                    key={month.value}
-                    type="button"
-                    className={filters.months.includes(month.value) ? 'quick-month-active' : 'quick-month'}
-                    onClick={() => updateFilter('months', toggleValue(filters.months, month.value))}
-                  >
-                    {month.label}
-                  </button>
-                ))}
               </div>
-            </div>
             </div>
           </aside>
 
