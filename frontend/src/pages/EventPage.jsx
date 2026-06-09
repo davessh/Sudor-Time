@@ -37,6 +37,37 @@ function formatFecha(fecha) {
   })
 }
 
+function getCountdownParts(targetValue, nowValue) {
+  if (!targetValue) return null
+  const target = new Date(targetValue)
+  if (Number.isNaN(target.getTime())) return null
+
+  const diff = target.getTime() - nowValue.getTime()
+  if (diff <= 0) {
+    return {
+      reached: true,
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+    }
+  }
+
+  const totalSeconds = Math.floor(diff / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  return {
+    reached: false,
+    days,
+    hours,
+    minutes,
+    seconds,
+  }
+}
+
 function normalizeKitItems(eventData) {
   const customItems = (eventData.kit_items || [])
     .filter((item) => item.visible !== false)
@@ -79,6 +110,7 @@ function normalizeEventSetup(data) {
       ? modalidades.map(getModalidadNombre).join(' y ')
       : 'Modalidades por definir',
     organizador: eventData.organizador || eventData.organiza || 'Por definir',
+    cuentaRegresivaAt: eventData.cuenta_regresiva_at || '',
     imagenHero: eventData.imagen_hero || '',
     imagenConvocatoria:
       eventData.imagen_convocatoria ||
@@ -104,6 +136,7 @@ export default function EventPage() {
   const [evento, setEvento] = useState(null)
   const [siteSettings, setSiteSettings] = useState(null)
   const [pendingRegistration, setPendingRegistration] = useState(null)
+  const [now, setNow] = useState(() => new Date())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -132,7 +165,13 @@ export default function EventPage() {
     setPendingRegistration(getStoredPendingRegistration(id))
   }, [id])
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(interval)
+  }, [])
+
   const registrationLink = evento ? `/evento/${evento.id}/inscripcion` : '#'
+  const countdown = getCountdownParts(evento?.cuentaRegresivaAt, now)
 
   if (loading) {
     return (
@@ -252,6 +291,10 @@ export default function EventPage() {
                 <HeroMeta icon={Clock} label="Salida" value={evento.salida} accent={eventAccent} />
                 <HeroMeta icon={Users} label="Organiza" value={evento.organizador} accent={eventAccent} />
               </div>
+
+              {countdown && (
+                <CountdownBlock countdown={countdown} accent={eventAccent} primary={eventPrimary} />
+              )}
 
               <div className="mt-6 flex justify-center">
                 <Link
@@ -401,6 +444,41 @@ function HeroMeta({ icon, label, value, accent }) {
       <Icon className="h-4 w-4" style={{ color: accent || '#fecaca' }} />
       <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/58">{label}</p>
       <p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{value}</p>
+    </div>
+  )
+}
+
+function CountdownBlock({ countdown, accent, primary }) {
+  if (countdown.reached) {
+    return (
+      <div className="mx-auto mt-5 max-w-xl rounded-2xl border border-white/15 bg-white/12 p-4 text-center backdrop-blur">
+        <p className="text-xs font-black uppercase tracking-[0.22em]" style={{ color: accent }}>Cuenta regresiva</p>
+        <p className="mt-1 text-2xl font-black text-white">¡Es día de carrera!</p>
+      </div>
+    )
+  }
+
+  const items = [
+    { label: 'Días', value: countdown.days },
+    { label: 'Horas', value: countdown.hours },
+    { label: 'Min', value: countdown.minutes },
+    { label: 'Seg', value: countdown.seconds },
+  ]
+
+  return (
+    <div className="mx-auto mt-5 max-w-xl rounded-2xl border border-white/15 bg-black/24 p-3 text-center shadow-2xl shadow-black/20 backdrop-blur">
+      <p className="text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: accent }}>Faltan...</p>
+      <div className="mt-3 grid grid-cols-4 gap-2">
+        {items.map((item) => (
+          <div key={item.label} className="rounded-xl border border-white/12 bg-white/12 px-2 py-3">
+            <p className="text-2xl font-black leading-none text-white sm:text-3xl">
+              {String(item.value).padStart(2, '0')}
+            </p>
+            <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-white/60">{item.label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mx-auto mt-3 h-1 w-20 rounded-full" style={{ backgroundColor: primary }} />
     </div>
   )
 }

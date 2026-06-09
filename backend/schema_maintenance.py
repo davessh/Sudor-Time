@@ -25,6 +25,7 @@ REGISTRATION_COLUMNS = {
 }
 
 EVENT_COLUMNS = {
+    "cuenta_regresiva_at": "TIMESTAMP",
     "color_primario": "VARCHAR(20)",
     "color_secundario": "VARCHAR(20)",
     "color_acento": "VARCHAR(20)",

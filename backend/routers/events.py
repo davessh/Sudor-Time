@@ -87,6 +87,7 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
         "hora_salida": event.hora_salida,
         "organizador": event.organizador,
         "inscripciones_abiertas": event.inscripciones_abiertas,
+        "cuenta_regresiva_at": event.cuenta_regresiva_at,
         "color_primario": event.color_primario,
         "color_secundario": event.color_secundario,
         "color_acento": event.color_acento,

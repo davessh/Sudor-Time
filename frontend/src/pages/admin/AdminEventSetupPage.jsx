@@ -30,6 +30,7 @@ const initialEventForm = {
   hora_salida: '',
   organizador: '',
   inscripciones_abiertas: true,
+  cuenta_regresiva_at: '',
   color_primario: '#6A1A24',
   color_secundario: '#15070A',
   color_acento: '#F4D35E',
@@ -177,6 +178,7 @@ export default function AdminEventSetupPage() {
         hora_salida: data.hora_salida || '',
         organizador: data.organizador || '',
         inscripciones_abiertas: Boolean(data.inscripciones_abiertas),
+        cuenta_regresiva_at: data.cuenta_regresiva_at ? String(data.cuenta_regresiva_at).slice(0, 16) : '',
         color_primario: data.color_primario || '#6A1A24',
         color_secundario: data.color_secundario || '#15070A',
         color_acento: data.color_acento || '#F4D35E',
@@ -262,6 +264,7 @@ export default function AdminEventSetupPage() {
         hora_salida: eventForm.hora_salida.trim() || null,
         organizador: eventForm.organizador.trim() || null,
         inscripciones_abiertas: eventForm.inscripciones_abiertas,
+        cuenta_regresiva_at: eventForm.cuenta_regresiva_at || null,
         color_primario: eventForm.color_primario.trim() || null,
         color_secundario: eventForm.color_secundario.trim() || null,
         color_acento: eventForm.color_acento.trim() || null,
@@ -647,6 +650,14 @@ export default function AdminEventSetupPage() {
               <Field label="Hora de salida">
                 <input type="time" name="hora_salida" value={eventForm.hora_salida} onChange={handleEventChange} className={inputClass()} />
               </Field>
+              <div className="md:col-span-2">
+                <Field label="Cuenta regresiva">
+                  <input type="datetime-local" name="cuenta_regresiva_at" value={eventForm.cuenta_regresiva_at} onChange={handleEventChange} className={inputClass()} />
+                </Field>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                  Fecha y hora objetivo del contador público. Normalmente úsalo para la hora de salida del evento.
+                </p>
+              </div>
               <Field label="Lugar">
                 <input name="lugar" value={eventForm.lugar} onChange={handleEventChange} required className={inputClass()} />
               </Field>

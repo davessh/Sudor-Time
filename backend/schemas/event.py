@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -19,6 +19,7 @@ class EventCreate(BaseModel):
     hora_salida: Optional[str] = None
     organizador: Optional[str] = None
     inscripciones_abiertas: bool = True
+    cuenta_regresiva_at: Optional[datetime] = None
     color_primario: Optional[str] = None
     color_secundario: Optional[str] = None
     color_acento: Optional[str] = None
@@ -40,6 +41,7 @@ class EventResponse(BaseModel):
     hora_salida: Optional[str] = None
     organizador: Optional[str] = None
     inscripciones_abiertas: bool = True
+    cuenta_regresiva_at: Optional[datetime] = None
     color_primario: Optional[str] = None
     color_secundario: Optional[str] = None
     color_acento: Optional[str] = None

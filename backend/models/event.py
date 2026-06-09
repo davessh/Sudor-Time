@@ -19,6 +19,7 @@ class Event(Base):
     hora_salida = Column(String, nullable=True)
     organizador = Column(String, nullable=True)
     inscripciones_abiertas = Column(Boolean, default=True)
+    cuenta_regresiva_at = Column(DateTime(timezone=True), nullable=True)
     color_primario = Column(String(20), nullable=True)
     color_secundario = Column(String(20), nullable=True)
     color_acento = Column(String(20), nullable=True)
