@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from config import EVENT_UPLOADS_DIR
 from dependencies import get_db
-from models import Event, EventModality, RegistrationProduct, Category, EventShirtSize, Registration
-from schemas.event import EventCreate, EventResponse, EventStatsResponse, CountItem
+from models import Event, EventModality, RegistrationProduct, Category, EventShirtSize, EventKitItem, Registration
+from schemas.event import EventCreate, EventKitItemCreate, EventKitItemResponse, EventKitItemUpdate, EventResponse, EventStatsResponse, CountItem
 from security import require_admin
 
 router = APIRouter(prefix="/events", tags=["Events"])
@@ -61,6 +61,10 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
     modalities = db.query(EventModality).filter(EventModality.event_id == event_id).all()
     categories = db.query(Category).filter(Category.event_id == event_id).all()
     products = db.query(RegistrationProduct).filter(RegistrationProduct.event_id == event_id).all()
+    kit_items = db.query(EventKitItem).filter(EventKitItem.event_id == event_id).order_by(
+        EventKitItem.orden.asc(),
+        EventKitItem.id.asc(),
+    ).all()
 
     active_shirt_sizes = db.query(EventShirtSize).filter(
         EventShirtSize.event_id == event_id,
@@ -123,6 +127,18 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
                 "incluye_playera": product.incluye_playera,
             }
             for product in products
+        ],
+        "kit_items": [
+            {
+                "id": item.id,
+                "event_id": item.event_id,
+                "titulo": item.titulo,
+                "descripcion": item.descripcion,
+                "imagen": item.imagen,
+                "orden": item.orden,
+                "visible": item.visible,
+            }
+            for item in kit_items
         ],
         "shirt_sizes": [
             {
@@ -230,6 +246,115 @@ async def subir_dorsal_evento(
     db: Session = Depends(get_db),
 ):
     return await _guardar_imagen_evento(event_id, file, db, "imagen_dorsal", "dorsal")
+
+
+@router.post("/{event_id}/kit-items", response_model=EventKitItemResponse, dependencies=[Depends(require_admin)])
+def crear_kit_item_evento(event_id: int, data: EventKitItemCreate, db: Session = Depends(get_db)):
+    evento = db.query(Event).filter(Event.id == event_id).first()
+    if not evento:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+
+    item = EventKitItem(
+        event_id=event_id,
+        titulo=data.titulo.strip(),
+        descripcion=data.descripcion.strip() if data.descripcion else None,
+        imagen=data.imagen.strip() if data.imagen else None,
+        orden=data.orden,
+        visible=data.visible,
+    )
+    if not item.titulo:
+        raise HTTPException(status_code=400, detail="El título del elemento es obligatorio")
+
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.put("/{event_id}/kit-items/{item_id}", response_model=EventKitItemResponse, dependencies=[Depends(require_admin)])
+def actualizar_kit_item_evento(event_id: int, item_id: int, data: EventKitItemUpdate, db: Session = Depends(get_db)):
+    item = db.query(EventKitItem).filter(
+        EventKitItem.id == item_id,
+        EventKitItem.event_id == event_id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Elemento de kit no encontrado")
+
+    titulo = data.titulo.strip()
+    if not titulo:
+        raise HTTPException(status_code=400, detail="El título del elemento es obligatorio")
+
+    item.titulo = titulo
+    item.descripcion = data.descripcion.strip() if data.descripcion else None
+    item.imagen = data.imagen.strip() if data.imagen else None
+    item.orden = data.orden
+    item.visible = data.visible
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.delete("/{event_id}/kit-items/{item_id}", dependencies=[Depends(require_admin)])
+def eliminar_kit_item_evento(event_id: int, item_id: int, db: Session = Depends(get_db)):
+    item = db.query(EventKitItem).filter(
+        EventKitItem.id == item_id,
+        EventKitItem.event_id == event_id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Elemento de kit no encontrado")
+
+    db.delete(item)
+    db.commit()
+    return {"message": "Elemento de kit eliminado correctamente"}
+
+
+@router.post("/{event_id}/kit-items/{item_id}/upload-image", response_model=EventKitItemResponse, dependencies=[Depends(require_admin)])
+async def subir_imagen_kit_item_evento(
+    event_id: int,
+    item_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    item = db.query(EventKitItem).filter(
+        EventKitItem.id == item_id,
+        EventKitItem.event_id == event_id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Elemento de kit no encontrado")
+
+    extension = Path(file.filename or "").suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Sube una imagen JPG, PNG o WEBP")
+
+    content_type = file.content_type or ""
+    if content_type and not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"kit-{event_id}-{item_id}-{uuid4().hex}{extension}"
+    destination = UPLOADS_DIR / filename
+
+    total_bytes = 0
+    first_chunk = b""
+    with destination.open("wb") as buffer:
+        while chunk := await file.read(1024 * 1024):
+            if not first_chunk:
+                first_chunk = chunk[:16]
+                if not _looks_like_allowed_image(first_chunk, extension):
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(status_code=400, detail="El archivo no parece ser una imagen válida")
+
+            total_bytes += len(chunk)
+            if total_bytes > MAX_UPLOAD_BYTES:
+                destination.unlink(missing_ok=True)
+                raise HTTPException(status_code=400, detail="La imagen no debe superar 5 MB")
+
+            buffer.write(chunk)
+
+    item.imagen = _public_upload_path(filename)
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 @router.get("/{event_id}/stats", response_model=EventStatsResponse, dependencies=[Depends(require_admin)])

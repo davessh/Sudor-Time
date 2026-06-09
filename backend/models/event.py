@@ -31,6 +31,7 @@ class Event(Base):
     products = relationship("RegistrationProduct", back_populates="event", cascade="all, delete-orphan")
     categories = relationship("Category", back_populates="event", cascade="all, delete-orphan")
     shirt_sizes = relationship("EventShirtSize", back_populates="event", cascade="all, delete-orphan")
+    kit_items = relationship("EventKitItem", back_populates="event", cascade="all, delete-orphan")
     checkpoints = relationship("Checkpoint", back_populates="event", cascade="all, delete-orphan")
     registrations = relationship("Registration", back_populates="event", cascade="all, delete-orphan")
     raw_reads = relationship("RawRead", back_populates="event", cascade="all, delete-orphan")
@@ -105,6 +106,20 @@ class EventShirtSize(Base):
     __table_args__ = (
         UniqueConstraint("event_id", "talla", name="uq_event_shirt_size"),
     )
+
+
+class EventKitItem(Base):
+    __tablename__ = "event_kit_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    titulo = Column(String, nullable=False)
+    descripcion = Column(Text, nullable=True)
+    imagen = Column(Text, nullable=True)
+    orden = Column(Integer, nullable=False, default=0)
+    visible = Column(Boolean, default=True, nullable=False)
+
+    event = relationship("Event", back_populates="kit_items")
 
 
 class Checkpoint(Base):

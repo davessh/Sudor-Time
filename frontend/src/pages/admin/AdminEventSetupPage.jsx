@@ -2,7 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { getApiAssetUrl } from '../../api/client'
-import { getEventSetup, updateEvent, uploadEventConvocatoria, uploadEventDorsal, uploadEventMedalla, uploadEventPlayera, uploadEventPortada } from '../../api/events'
+import {
+  createEventKitItem,
+  deleteEventKitItem,
+  getEventSetup,
+  updateEvent,
+  updateEventKitItem,
+  uploadEventConvocatoria,
+  uploadEventDorsal,
+  uploadEventKitItemImage,
+  uploadEventMedalla,
+  uploadEventPlayera,
+  uploadEventPortada,
+} from '../../api/events'
 import { createModality, deleteModality } from '../../api/modalities'
 import { createCategory, deleteCategory } from '../../api/categories'
 import { createProduct, deleteProduct } from '../../api/products'
@@ -51,6 +63,14 @@ const initialShirtForm = {
   talla: '',
   stock: '',
   activa: true,
+}
+
+const initialKitItemForm = {
+  titulo: '',
+  descripcion: '',
+  imagen: '',
+  orden: '0',
+  visible: true,
 }
 
 function money(value) {
@@ -118,6 +138,8 @@ export default function AdminEventSetupPage() {
   const [categoryForm, setCategoryForm] = useState(initialCategoryForm)
   const [productForm, setProductForm] = useState(initialProductForm)
   const [shirtForm, setShirtForm] = useState(initialShirtForm)
+  const [kitItemForm, setKitItemForm] = useState(initialKitItemForm)
+  const [kitItemFiles, setKitItemFiles] = useState({})
   const [coverImageFile, setCoverImageFile] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [shirtImageFile, setShirtImageFile] = useState(null)
@@ -458,6 +480,86 @@ export default function AdminEventSetupPage() {
     }
   }
 
+  function normalizeKitItemPayload(values) {
+    return {
+      titulo: values.titulo.trim(),
+      descripcion: values.descripcion?.trim() || null,
+      imagen: values.imagen?.trim() || null,
+      orden: Number(values.orden || 0),
+      visible: Boolean(values.visible),
+    }
+  }
+
+  async function addKitItem(e) {
+    e.preventDefault()
+    try {
+      setSaving('kit-item')
+      await createEventKitItem(id, normalizeKitItemPayload(kitItemForm))
+      setKitItemForm(initialKitItemForm)
+      await loadSetup()
+      showSuccess('Elemento del kit creado.')
+    } catch (err) {
+      showError(err, 'No se pudo crear el elemento del kit')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  function handleKitItemChange(itemId, field, value) {
+    setSetup((current) => ({
+      ...current,
+      kit_items: (current.kit_items || []).map((item) => (
+        item.id === itemId ? { ...item, [field]: value } : item
+      )),
+    }))
+  }
+
+  async function saveKitItem(item) {
+    try {
+      setSaving(`kit-save-${item.id}`)
+      await updateEventKitItem(id, item.id, normalizeKitItemPayload(item))
+      await loadSetup()
+      showSuccess('Elemento del kit actualizado.')
+    } catch (err) {
+      showError(err, 'No se pudo actualizar el elemento del kit')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadKitItemImage(itemId) {
+    const file = kitItemFiles[itemId]
+    if (!file) {
+      setError('Selecciona una imagen primero.')
+      return
+    }
+
+    try {
+      setSaving(`kit-upload-${itemId}`)
+      await uploadEventKitItemImage(id, itemId, file)
+      setKitItemFiles((current) => ({ ...current, [itemId]: null }))
+      await loadSetup()
+      showSuccess('Imagen del kit subida correctamente.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen del kit')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function removeKitItem(itemId) {
+    try {
+      setSaving(`kit-delete-${itemId}`)
+      await deleteEventKitItem(id, itemId)
+      await loadSetup()
+      showSuccess('Elemento del kit eliminado.')
+    } catch (err) {
+      showError(err, 'No se pudo eliminar el elemento del kit')
+    } finally {
+      setSaving('')
+    }
+  }
+
   if (loading) {
     return (
       <AdminLayout title="Configurar evento" subtitle="Cargando datos del evento...">
@@ -700,7 +802,78 @@ export default function AdminEventSetupPage() {
             </form>
           </SectionCard>
 
-          <SectionCard title="Kit del evento" subtitle="Sube fotos de la playera o medalla para enriquecer la página pública.">
+          <SectionCard title="Lo que recibe el corredor" subtitle="Crea los cuadros que aparecerán en la página pública: playera, medalla, morral, número, chip u otros beneficios.">
+            <form onSubmit={addKitItem} className="grid gap-4">
+              <Field label="Título">
+                <input name="titulo" value={kitItemForm.titulo} onChange={handleFormChange(setKitItemForm)} required placeholder="Playera, Medalla, Morral..." className={inputClass()} />
+              </Field>
+              <Field label="Descripción corta">
+                <input name="descripcion" value={kitItemForm.descripcion} onChange={handleFormChange(setKitItemForm)} placeholder="Incluida en paquete VIP, diseño conmemorativo..." className={inputClass()} />
+              </Field>
+              <Field label="URL de imagen opcional">
+                <input name="imagen" value={kitItemForm.imagen} onChange={handleFormChange(setKitItemForm)} placeholder="/uploads/eventos/playera.png o https://..." className={inputClass()} />
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <Field label="Orden">
+                  <input type="number" name="orden" value={kitItemForm.orden} onChange={handleFormChange(setKitItemForm)} className={inputClass()} />
+                </Field>
+                <label className="flex min-h-12 items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                  <input type="checkbox" name="visible" checked={kitItemForm.visible} onChange={handleFormChange(setKitItemForm)} />
+                  Visible
+                </label>
+              </div>
+              <button disabled={saving === 'kit-item'} className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
+                {saving === 'kit-item' ? 'Creando...' : 'Crear cuadro del kit'}
+              </button>
+            </form>
+
+            <div className="mt-6 space-y-4">
+              {(setup.kit_items || []).length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-300 p-5 text-center text-sm font-semibold text-slate-500">
+                  Todavía no hay cuadros personalizados. Si no agregas ninguno, la página usará las imágenes legacy de playera/medalla si existen.
+                </p>
+              ) : setup.kit_items.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200 p-4">
+                  {item.imagen ? (
+                    <img src={getApiAssetUrl(item.imagen)} alt={item.titulo} className="mb-4 h-36 w-full rounded-2xl border border-slate-200 object-cover" />
+                  ) : (
+                    <div className="mb-4 flex h-28 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm font-semibold text-slate-500">
+                      Sin imagen
+                    </div>
+                  )}
+                  <div className="grid gap-3">
+                    <input value={item.titulo || ''} onChange={(e) => handleKitItemChange(item.id, 'titulo', e.target.value)} className={inputClass()} />
+                    <input value={item.descripcion || ''} onChange={(e) => handleKitItemChange(item.id, 'descripcion', e.target.value)} placeholder="Descripción corta" className={inputClass()} />
+                    <input value={item.imagen || ''} onChange={(e) => handleKitItemChange(item.id, 'imagen', e.target.value)} placeholder="URL de imagen" className={inputClass()} />
+                    <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <input type="number" value={item.orden ?? 0} onChange={(e) => handleKitItemChange(item.id, 'orden', e.target.value)} className={inputClass()} />
+                      <label className="flex min-h-12 items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                        <input type="checkbox" checked={Boolean(item.visible)} onChange={(e) => handleKitItemChange(item.id, 'visible', e.target.checked)} />
+                        Visible
+                      </label>
+                    </div>
+                    <div className="grid gap-3">
+                      <input type="file" accept="image/*" onChange={(e) => setKitItemFiles((current) => ({ ...current, [item.id]: e.target.files?.[0] || null }))} className={inputClass()} />
+                      {kitItemFiles[item.id] && <p className="text-xs font-semibold text-slate-500">{kitItemFiles[item.id].name}</p>}
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <button type="button" onClick={() => saveKitItem(item)} disabled={saving === `kit-save-${item.id}`} className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
+                        {saving === `kit-save-${item.id}` ? 'Guardando...' : 'Guardar'}
+                      </button>
+                      <button type="button" onClick={() => uploadKitItemImage(item.id)} disabled={saving === `kit-upload-${item.id}`} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60">
+                        {saving === `kit-upload-${item.id}` ? 'Subiendo...' : 'Subir imagen'}
+                      </button>
+                      <button type="button" onClick={() => removeKitItem(item.id)} disabled={saving === `kit-delete-${item.id}`} className="rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60">
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Kit del evento" subtitle="Legacy: estas imágenes se usan como fallback si no hay cuadros personalizados.">
             <div className="grid gap-5 sm:grid-cols-2">
               <AssetUpload
                 title="Playera"

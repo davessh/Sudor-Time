@@ -52,6 +52,25 @@ class EventSetupResponse(EventResponse):
     shirt_sizes: list[EventShirtSizeResponse] = []
 
 
+class EventKitItemCreate(BaseModel):
+    titulo: str
+    descripcion: Optional[str] = None
+    imagen: Optional[str] = None
+    orden: int = 0
+    visible: bool = True
+
+
+class EventKitItemUpdate(EventKitItemCreate):
+    pass
+
+
+class EventKitItemResponse(EventKitItemCreate):
+    id: int
+    event_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class CountItem(BaseModel):
     id: Optional[int] = None
     nombre: str

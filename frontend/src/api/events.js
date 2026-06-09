@@ -85,3 +85,33 @@ export function uploadEventDorsal(eventId, file) {
     body: formData,
   })
 }
+
+export function createEventKitItem(eventId, payload) {
+  return apiRequest(`/events/${eventId}/kit-items`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateEventKitItem(eventId, itemId, payload) {
+  return apiRequest(`/events/${eventId}/kit-items/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteEventKitItem(eventId, itemId) {
+  return apiRequest(`/events/${eventId}/kit-items/${itemId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function uploadEventKitItemImage(eventId, itemId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest(`/events/${eventId}/kit-items/${itemId}/upload-image`, {
+    method: 'POST',
+    body: formData,
+  })
+}
