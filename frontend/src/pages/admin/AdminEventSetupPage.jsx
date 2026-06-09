@@ -10,6 +10,7 @@ import {
   updateEventKitItem,
   uploadEventConvocatoria,
   uploadEventDorsal,
+  uploadEventHero,
   uploadEventKitItemImage,
   uploadEventMedalla,
   uploadEventPlayera,
@@ -29,6 +30,7 @@ const initialEventForm = {
   hora_salida: '',
   organizador: '',
   inscripciones_abiertas: true,
+  imagen_hero: '',
   imagen_portada: '',
   imagen_convocatoria: '',
   imagen_playera: '',
@@ -140,6 +142,7 @@ export default function AdminEventSetupPage() {
   const [shirtForm, setShirtForm] = useState(initialShirtForm)
   const [kitItemForm, setKitItemForm] = useState(initialKitItemForm)
   const [kitItemFiles, setKitItemFiles] = useState({})
+  const [heroImageFile, setHeroImageFile] = useState(null)
   const [coverImageFile, setCoverImageFile] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [shirtImageFile, setShirtImageFile] = useState(null)
@@ -171,6 +174,7 @@ export default function AdminEventSetupPage() {
         hora_salida: data.hora_salida || '',
         organizador: data.organizador || '',
         inscripciones_abiertas: Boolean(data.inscripciones_abiertas),
+        imagen_hero: data.imagen_hero || '',
         imagen_portada: data.imagen_portada || '',
         imagen_convocatoria: data.imagen_convocatoria || '',
         imagen_playera: data.imagen_playera || '',
@@ -252,6 +256,7 @@ export default function AdminEventSetupPage() {
         hora_salida: eventForm.hora_salida.trim() || null,
         organizador: eventForm.organizador.trim() || null,
         inscripciones_abiertas: eventForm.inscripciones_abiertas,
+        imagen_hero: eventForm.imagen_hero.trim() || null,
         imagen_portada: eventForm.imagen_portada.trim() || null,
         imagen_convocatoria: eventForm.imagen_convocatoria.trim() || null,
         imagen_playera: eventForm.imagen_playera.trim() || null,
@@ -302,6 +307,26 @@ export default function AdminEventSetupPage() {
       showSuccess('Foto de portada subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la foto de portada')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadHeroImage(e) {
+    e.preventDefault()
+    if (!heroImageFile) {
+      setError('Selecciona una imagen hero primero.')
+      return
+    }
+
+    try {
+      setSaving('hero-image')
+      await uploadEventHero(id, heroImageFile)
+      setHeroImageFile(null)
+      await loadSetup()
+      showSuccess('Hero del evento subido correctamente.')
+    } catch (err) {
+      showError(err, 'No se pudo subir el hero del evento')
     } finally {
       setSaving('')
     }
@@ -625,6 +650,11 @@ export default function AdminEventSetupPage() {
                 </Field>
               </div>
               <div className="md:col-span-2">
+                <Field label="URL de imagen hero del evento">
+                  <input name="imagen_hero" value={eventForm.imagen_hero} onChange={handleEventChange} placeholder="/uploads/eventos/hero-evento.png o https://..." className={inputClass()} />
+                </Field>
+              </div>
+              <div className="md:col-span-2">
                 <Field label="URL de foto de portada">
                   <input name="imagen_portada" value={eventForm.imagen_portada} onChange={handleEventChange} placeholder="/uploads/eventos/portada.png o https://..." className={inputClass()} />
                 </Field>
@@ -769,6 +799,23 @@ export default function AdminEventSetupPage() {
         </div>
 
         <div className="space-y-8">
+          <SectionCard title="Hero del evento" subtitle="Imagen superior de la página pública del evento. Si no subes una, se usará el hero principal del sitio.">
+            {eventForm.imagen_hero ? (
+              <img src={getApiAssetUrl(eventForm.imagen_hero)} alt="Hero del evento" className="mb-5 h-56 w-full rounded-2xl border border-slate-200 object-cover" />
+            ) : (
+              <div className="mb-5 flex h-56 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                Sin hero personalizado. Se usará el hero principal del sitio.
+              </div>
+            )}
+            <form onSubmit={uploadHeroImage} className="space-y-4">
+              <input type="file" accept="image/*" onChange={(e) => setHeroImageFile(e.target.files?.[0] || null)} className={inputClass()} />
+              {heroImageFile && <p className="text-xs font-semibold text-slate-500">{heroImageFile.name}</p>}
+              <button disabled={saving === 'hero-image'} className="w-full rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
+                {saving === 'hero-image' ? 'Subiendo...' : 'Subir hero del evento'}
+              </button>
+            </form>
+          </SectionCard>
+
           <SectionCard title="Foto de portada" subtitle="Esta foto aparece en la ventana principal y en las tarjetas de eventos.">
             {eventForm.imagen_portada ? (
               <img src={getApiAssetUrl(eventForm.imagen_portada)} alt="Foto de portada del evento" className="mb-5 h-56 w-full rounded-2xl border border-slate-200 object-cover" />

@@ -1,8 +1,18 @@
 import { ArrowRight, CalendarDays, Clock, ExternalLink, MapPin, PackageCheck, ShieldCheck, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
-import { getEventSetup } from '../api/events'
+import { useEffect, useState } from 'react'
 import { getApiAssetUrl } from '../api/client'
+import { getEventSetup } from '../api/events'
+import { getSiteSettings } from '../api/siteSettings'
+
+const DEFAULT_HERO_IMAGE = '/eventos/medio2.jpg'
+
+const navItems = [
+  { label: 'INICIO', href: '/' },
+  { label: 'CALENDARIO', href: '/#eventos' },
+  { label: 'RESULTADOS', href: '/#eventos' },
+  { label: 'GALERÍA', href: '/galeria' },
+]
 
 function getModalidadNombre(modalidad) {
   return modalidad.nombre || modalidad.name || `Modalidad ${modalidad.id}`
@@ -25,13 +35,6 @@ function formatFecha(fecha) {
     month: 'long',
     year: 'numeric',
   })
-}
-
-function getMinPrice(modalidades) {
-  const prices = modalidades
-    .map((modalidad) => Number(modalidad.precio))
-    .filter((price) => Number.isFinite(price) && price > 0)
-  return prices.length ? Math.min(...prices) : null
 }
 
 function normalizeKitItems(eventData) {
@@ -76,12 +79,7 @@ function normalizeEventSetup(data) {
       ? modalidades.map(getModalidadNombre).join(' y ')
       : 'Modalidades por definir',
     organizador: eventData.organizador || eventData.organiza || 'Por definir',
-    imagenHero:
-      eventData.imagen_portada ||
-      eventData.imagen_convocatoria ||
-      eventData.imagenConvocatoria ||
-      eventData.convocatoria_url ||
-      '',
+    imagenHero: eventData.imagen_hero || '',
     imagenConvocatoria:
       eventData.imagen_convocatoria ||
       eventData.imagenConvocatoria ||
@@ -104,6 +102,7 @@ function getStoredPendingRegistration(eventId) {
 export default function EventPage() {
   const { id } = useParams()
   const [evento, setEvento] = useState(null)
+  const [siteSettings, setSiteSettings] = useState(null)
   const [pendingRegistration, setPendingRegistration] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -113,8 +112,12 @@ export default function EventPage() {
       try {
         setLoading(true)
         setError('')
-        const data = await getEventSetup(id)
-        setEvento(normalizeEventSetup(data))
+        const [eventData, settings] = await Promise.all([
+          getEventSetup(id),
+          getSiteSettings().catch(() => null),
+        ])
+        setEvento(normalizeEventSetup(eventData))
+        setSiteSettings(settings)
       } catch (err) {
         setError(err.message || 'No se pudo cargar el evento')
       } finally {
@@ -129,7 +132,6 @@ export default function EventPage() {
     setPendingRegistration(getStoredPendingRegistration(id))
   }, [id])
 
-  const minPrice = useMemo(() => getMinPrice(evento?.modalidades || []), [evento?.modalidades])
   const registrationLink = evento ? `/evento/${evento.id}/inscripcion` : '#'
 
   if (loading) {
@@ -158,49 +160,94 @@ export default function EventPage() {
 
   if (!evento) return null
 
+  const heroImageSrc = evento.imagenHero
+    ? getApiAssetUrl(evento.imagenHero)
+    : siteSettings?.hero_background_image
+      ? getApiAssetUrl(siteSettings.hero_background_image)
+      : DEFAULT_HERO_IMAGE
+  const heroColorStart = siteSettings?.hero_color_start || '#15070A'
+  const heroColorMid = siteSettings?.hero_color_mid || '#6A1A24'
+  const heroColorEnd = siteSettings?.hero_color_end || '#090D18'
+  const heroBackgroundFit = siteSettings?.hero_background_fit || 'cover'
+  const heroPositionX = Number(siteSettings?.hero_background_position_x ?? 50)
+  const heroPositionY = Number(siteSettings?.hero_background_position_y ?? 46)
+  const heroOpacity = Number(siteSettings?.hero_background_opacity ?? 46) / 100
+  const navbarBlur = Number(siteSettings?.navbar_blur ?? 12)
+  const navbarOpacity = Number(siteSettings?.navbar_opacity ?? 35) / 100
+
   return (
     <div className="page-shell pb-20 sm:pb-0">
-      <header className="absolute left-0 right-0 top-0 z-20">
-        <div className="page-container flex items-center justify-between py-4">
-          <Link to="/" className="rounded-xl bg-black/30 px-3 py-2 text-sm font-black text-white backdrop-blur transition hover:bg-black/45">
-            SudorTime
-          </Link>
-          <span className={`rounded-full px-3 py-2 text-xs font-black uppercase tracking-wide backdrop-blur ${evento.inscripcionesAbiertas ? 'bg-emerald-400/90 text-emerald-950' : 'bg-white/85 text-slate-700'}`}>
-            {evento.inscripcionesAbiertas ? 'Inscripciones abiertas' : 'Inscripciones cerradas'}
-          </span>
-        </div>
-      </header>
-
       <main>
-        <section className="relative flex min-h-[560px] items-end overflow-hidden bg-slate-950 pt-20 text-white sm:min-h-[620px]">
-          {evento.imagenHero ? (
+        <section className="relative overflow-hidden bg-[#15070a] text-white">
+          <div
+            className="absolute inset-0"
+            style={{ background: `linear-gradient(120deg, ${heroColorStart}, ${heroColorMid} 48%, ${heroColorEnd})` }}
+            aria-hidden="true"
+          />
+          {heroImageSrc && (
             <div
-              className="absolute inset-0 bg-cover bg-center opacity-60"
-              style={{ backgroundImage: `url("${getApiAssetUrl(evento.imagenHero)}")` }}
+              className="absolute inset-0 bg-no-repeat"
+              style={{
+                backgroundImage: `url("${heroImageSrc}")`,
+                backgroundPosition: `${heroPositionX}% ${heroPositionY}%`,
+                backgroundSize: heroBackgroundFit,
+                opacity: heroOpacity,
+              }}
+              aria-hidden="true"
             />
-          ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(106,26,36,.65),transparent_30%),linear-gradient(135deg,#15070A,#6A1A24_48%,#090D18)]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#090D18] via-[#090D18]/76 to-[#090D18]/20" />
+          <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(21,7,10,0.58),rgba(106,26,36,0.30)_48%,rgba(9,13,24,0.62))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.16)_58%,rgba(0,0,0,0.42)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.06)_0_1px,transparent_1px_18px)] opacity-20" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-white/10" />
 
-          <div className="page-container relative z-10 pb-8 sm:pb-12">
-            <div className="max-w-3xl">
+          <div
+            className="relative border-b border-white/10 shadow-2xl shadow-black/20"
+            style={{
+              backgroundColor: `rgba(0, 0, 0, ${navbarOpacity})`,
+              backdropFilter: `blur(${navbarBlur}px)`,
+              WebkitBackdropFilter: `blur(${navbarBlur}px)`,
+            }}
+          >
+            <div className="page-container flex min-h-14 flex-col gap-2 py-2 sm:min-h-16 sm:py-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+              <Link to="/" className="flex items-center justify-center lg:justify-start" aria-label="SudorTime inicio">
+                <img src="/sudortime.png" alt="SudorTime" className="h-14 w-auto object-contain drop-shadow-2xl sm:h-24 lg:h-28" />
+              </Link>
+
+              <nav className="grid w-full grid-cols-4 gap-1 text-center text-[0.68rem] font-black uppercase tracking-wide text-white/90 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-center sm:gap-y-2 sm:text-sm">
+                {navItems.map((item, index) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="rounded-lg bg-white/5 px-1 py-1.5 transition hover:bg-white/10 hover:text-white sm:bg-transparent sm:px-2.5 sm:py-0 sm:hover:bg-transparent lg:px-4"
+                  >
+                    {index > 0 && <span className="mr-2.5 hidden text-white/25 sm:inline lg:mr-4">|</span>}
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
+
+              <span className={`mx-auto w-fit rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wide lg:mx-0 ${evento.inscripcionesAbiertas ? 'bg-white text-[#6A1A24]' : 'bg-white/15 text-white/78'}`}>
+                {evento.inscripcionesAbiertas ? 'Inscripciones abiertas' : 'Inscripciones cerradas'}
+              </span>
+            </div>
+          </div>
+
+          <div className="page-container relative z-10 flex min-h-[360px] flex-col justify-center py-7 text-center sm:min-h-[420px] sm:py-10 lg:min-h-[450px]">
+            <div className="mx-auto max-w-3xl animate-[fadeUp_.55s_ease-out]">
               <p className="text-xs font-black uppercase tracking-[0.24em] text-red-100">Convocatoria oficial</p>
-              <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-tight sm:text-6xl">
+              <h1 className="mt-3 text-[2rem] font-black leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
                 {evento.nombre}
               </h1>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/86 sm:text-lg">
-                {evento.descripcion || `${evento.distancia} · ${evento.lugar || 'Lugar por definir'}`}
-              </p>
 
-              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="mt-6 grid grid-cols-2 gap-2 text-left sm:grid-cols-4">
                 <HeroMeta icon={CalendarDays} label="Fecha" value={formatFecha(evento.fecha)} />
                 <HeroMeta icon={MapPin} label="Lugar" value={evento.lugar || 'Por definir'} />
                 <HeroMeta icon={Clock} label="Salida" value={evento.salida} />
                 <HeroMeta icon={Users} label="Organiza" value={evento.organizador} />
               </div>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mt-6 flex justify-center">
                 <Link
                   to={registrationLink}
                   className={`btn-conversion sm:w-auto ${!evento.inscripcionesAbiertas ? 'pointer-events-none opacity-60' : ''}`}
@@ -208,11 +255,6 @@ export default function EventPage() {
                   Inscribirme ahora
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
-                {minPrice !== null && (
-                  <p className="rounded-xl bg-white/12 px-4 py-3 text-sm font-black text-white backdrop-blur">
-                    Desde {formatMoney(minPrice)}
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -327,7 +369,6 @@ export default function EventPage() {
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/20 bg-white/92 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.16)] backdrop-blur sm:hidden">
           <Link to={registrationLink} className="btn-conversion">
             Inscribirme
-            {minPrice !== null && <span className="ml-2 opacity-80">· desde {formatMoney(minPrice)}</span>}
           </Link>
         </div>
       )}
