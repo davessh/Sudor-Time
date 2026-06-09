@@ -165,8 +165,11 @@ export default function EventPage() {
     : siteSettings?.hero_background_image
       ? getApiAssetUrl(siteSettings.hero_background_image)
       : DEFAULT_HERO_IMAGE
-  const heroColorStart = siteSettings?.hero_color_start || '#15070A'
-  const heroColorMid = siteSettings?.hero_color_mid || '#6A1A24'
+  const eventPrimary = evento.color_primario || siteSettings?.hero_color_mid || '#6A1A24'
+  const eventSecondary = evento.color_secundario || siteSettings?.hero_color_start || '#15070A'
+  const eventAccent = evento.color_acento || '#F4D35E'
+  const heroColorStart = eventSecondary
+  const heroColorMid = eventPrimary
   const heroColorEnd = siteSettings?.hero_color_end || '#090D18'
   const heroBackgroundFit = siteSettings?.hero_background_fit || 'cover'
   const heroPositionX = Number(siteSettings?.hero_background_position_x ?? 50)
@@ -227,7 +230,10 @@ export default function EventPage() {
                 ))}
               </nav>
 
-              <span className={`mx-auto w-fit rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wide lg:mx-0 ${evento.inscripcionesAbiertas ? 'bg-white text-[#6A1A24]' : 'bg-white/15 text-white/78'}`}>
+              <span
+                className="mx-auto w-fit rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wide lg:mx-0"
+                style={evento.inscripcionesAbiertas ? { backgroundColor: '#ffffff', color: eventPrimary } : { backgroundColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.78)' }}
+              >
                 {evento.inscripcionesAbiertas ? 'Inscripciones abiertas' : 'Inscripciones cerradas'}
               </span>
             </div>
@@ -241,16 +247,20 @@ export default function EventPage() {
               </h1>
 
               <div className="mt-6 grid grid-cols-2 gap-2 text-left sm:grid-cols-4">
-                <HeroMeta icon={CalendarDays} label="Fecha" value={formatFecha(evento.fecha)} />
-                <HeroMeta icon={MapPin} label="Lugar" value={evento.lugar || 'Por definir'} />
-                <HeroMeta icon={Clock} label="Salida" value={evento.salida} />
-                <HeroMeta icon={Users} label="Organiza" value={evento.organizador} />
+                <HeroMeta icon={CalendarDays} label="Fecha" value={formatFecha(evento.fecha)} accent={eventAccent} />
+                <HeroMeta icon={MapPin} label="Lugar" value={evento.lugar || 'Por definir'} accent={eventAccent} />
+                <HeroMeta icon={Clock} label="Salida" value={evento.salida} accent={eventAccent} />
+                <HeroMeta icon={Users} label="Organiza" value={evento.organizador} accent={eventAccent} />
               </div>
 
               <div className="mt-6 flex justify-center">
                 <Link
                   to={registrationLink}
                   className={`btn-conversion sm:w-auto ${!evento.inscripcionesAbiertas ? 'pointer-events-none opacity-60' : ''}`}
+                  style={{
+                    backgroundColor: eventPrimary,
+                    boxShadow: `0 18px 34px ${eventPrimary}33`,
+                  }}
                 >
                   Inscribirme ahora
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -281,7 +291,7 @@ export default function EventPage() {
                 <p className="eyebrow">Elige tu modalidad</p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Inscripción rápida</h2>
               </div>
-              <ShieldCheck className="h-8 w-8 shrink-0 text-[#6A1A24]" />
+              <ShieldCheck className="h-8 w-8 shrink-0" style={{ color: eventPrimary }} />
             </div>
 
             {evento.modalidades.length > 0 ? (
@@ -290,14 +300,15 @@ export default function EventPage() {
                   <Link
                     key={modalidad.id}
                     to={`/evento/${evento.id}/inscripcion?modalidad=${modalidad.id}`}
-                    className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-[#6A1A24]/30 hover:bg-[#6A1A24]/5"
+                    className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5"
+                    style={{ '--event-primary': eventPrimary }}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="font-black text-slate-950">{getModalidadNombre(modalidad)}</h3>
-                      <ArrowRight className="h-5 w-5 shrink-0 text-slate-400 transition group-hover:text-[#6A1A24]" />
+                      <ArrowRight className="h-5 w-5 shrink-0 text-slate-400 transition group-hover:text-[var(--event-primary)]" />
                     </div>
                     {modalidad.descripcion && <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{modalidad.descripcion}</p>}
-                    <p className="mt-4 text-2xl font-black text-[#6A1A24]">{formatMoney(modalidad.precio)}</p>
+                    <p className="mt-4 text-2xl font-black" style={{ color: eventPrimary }}>{formatMoney(modalidad.precio)}</p>
                   </Link>
                 ))}
               </div>
@@ -317,7 +328,7 @@ export default function EventPage() {
                   <p className="eyebrow">Kit del corredor</p>
                   <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Lo que recibes</h2>
                 </div>
-                <PackageCheck className="h-8 w-8 shrink-0 text-[#6A1A24]" />
+                <PackageCheck className="h-8 w-8 shrink-0" style={{ color: eventPrimary }} />
               </div>
               <div className={`mt-4 grid gap-3 ${evento.kitItems.length === 1 ? 'sm:grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
                 {evento.kitItems.map((item) => (
@@ -367,7 +378,14 @@ export default function EventPage() {
 
       {evento.inscripcionesAbiertas && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/20 bg-white/92 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.16)] backdrop-blur sm:hidden">
-          <Link to={registrationLink} className="btn-conversion">
+          <Link
+            to={registrationLink}
+            className="btn-conversion"
+            style={{
+              backgroundColor: eventPrimary,
+              boxShadow: `0 18px 34px ${eventPrimary}33`,
+            }}
+          >
             Inscribirme
           </Link>
         </div>
@@ -376,11 +394,11 @@ export default function EventPage() {
   )
 }
 
-function HeroMeta({ icon, label, value }) {
+function HeroMeta({ icon, label, value, accent }) {
   const Icon = icon
   return (
     <div className="rounded-2xl border border-white/15 bg-white/12 p-3 backdrop-blur">
-      <Icon className="h-4 w-4 text-red-100" />
+      <Icon className="h-4 w-4" style={{ color: accent || '#fecaca' }} />
       <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/58">{label}</p>
       <p className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">{value}</p>
     </div>

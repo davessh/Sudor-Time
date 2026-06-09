@@ -25,6 +25,9 @@ REGISTRATION_COLUMNS = {
 }
 
 EVENT_COLUMNS = {
+    "color_primario": "VARCHAR(20)",
+    "color_secundario": "VARCHAR(20)",
+    "color_acento": "VARCHAR(20)",
     "imagen_hero": "TEXT",
     "imagen_portada": "TEXT",
     "imagen_playera": "TEXT",

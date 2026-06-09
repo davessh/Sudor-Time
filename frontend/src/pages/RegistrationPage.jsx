@@ -48,6 +48,14 @@ function formatMoney(value) {
   })
 }
 
+function getEventTheme(evento) {
+  return {
+    primary: evento?.color_primario || '#6A1A24',
+    secondary: evento?.color_secundario || '#15070A',
+    accent: evento?.color_acento || '#F4D35E',
+  }
+}
+
 const emptyForm = {
   modality_id: '',
   product_id: '',
@@ -268,22 +276,32 @@ export default function RegistrationPage() {
     )
   }
 
+  const eventTheme = getEventTheme(setup)
+
   return (
-    <div className="page-shell">
+    <div
+      className="page-shell"
+      style={{
+        '--event-primary': eventTheme.primary,
+        '--event-secondary': eventTheme.secondary,
+        '--event-accent': eventTheme.accent,
+      }}
+    >
       <header className="border-b border-slate-200 bg-white">
+        <div className="h-2" style={{ background: `linear-gradient(90deg, ${eventTheme.secondary}, ${eventTheme.primary}, ${eventTheme.accent})` }} />
         <div className="page-container py-5 sm:py-6">
-          <Link to={`/evento/${setup.id}`} className="text-sm font-bold text-slate-500 transition hover:text-slate-950">
+          <Link to={`/evento/${setup.id}`} className="text-sm font-bold transition hover:opacity-80" style={{ color: eventTheme.primary }}>
             Volver al evento
           </Link>
           <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="eyebrow">Registro</p>
+              <p className="text-xs font-bold uppercase tracking-[0.22em]" style={{ color: eventTheme.primary }}>Registro</p>
               <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Inscripción oficial</h1>
               <p className="mt-2 text-sm leading-6 text-slate-500 sm:text-base">
                 {setup.nombre} · {setup.fecha} · {setup.lugar}
               </p>
             </div>
-            <span className="chip w-fit">Pago pendiente al terminar</span>
+            <span className="chip w-fit" style={{ backgroundColor: `${eventTheme.accent}24`, color: eventTheme.primary }}>Pago pendiente al terminar</span>
           </div>
         </div>
       </header>
@@ -297,9 +315,10 @@ export default function RegistrationPage() {
                 return (
                   <label
                     key={modalidad.id}
-                    className={`cursor-pointer rounded-xl border p-4 transition ${
-                      activa ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white hover:border-slate-400'
-                    }`}
+                    className="cursor-pointer rounded-xl border p-4 transition"
+                    style={activa
+                      ? { borderColor: eventTheme.primary, backgroundColor: eventTheme.primary, color: '#ffffff' }
+                      : { borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}
                   >
                     <input type="radio" name="modality_id" value={modalidad.id} checked={activa} onChange={handleChange} className="sr-only" />
                     <div className="flex items-start justify-between gap-4">
@@ -309,12 +328,17 @@ export default function RegistrationPage() {
                           <p className={`mt-1 text-sm leading-6 ${activa ? 'text-slate-200' : 'text-slate-500'}`}>{modalidad.descripcion}</p>
                         )}
                         {modalidad.incluye_playera && (
-                          <p className={`mt-2 text-xs font-bold uppercase tracking-[0.14em] ${activa ? 'text-red-100' : 'text-red-700'}`}>
+                          <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: activa ? eventTheme.accent : eventTheme.primary }}>
                             Incluye playera
                           </p>
                         )}
                       </div>
-                      <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-black ${activa ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-900'}`}>
+                      <span
+                        className="shrink-0 rounded-full px-3 py-1 text-sm font-black"
+                        style={activa
+                          ? { backgroundColor: '#ffffff', color: eventTheme.primary }
+                          : { backgroundColor: `${eventTheme.accent}22`, color: eventTheme.primary }}
+                      >
                         {formatMoney(modalidad.precio)}
                       </span>
                     </div>
@@ -398,7 +422,7 @@ export default function RegistrationPage() {
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="panel panel-pad">
-            <p className="eyebrow">Resumen</p>
+            <p className="text-xs font-bold uppercase tracking-[0.22em]" style={{ color: eventTheme.primary }}>Resumen</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight">{setup.nombre}</h2>
             <div className="mt-5 space-y-3 text-sm">
               <SummaryLine label="Modalidad" value={modalidadSeleccionada?.nombre || 'Pendiente'} />
@@ -410,13 +434,13 @@ export default function RegistrationPage() {
           </div>
 
           <div className="panel panel-pad">
-            <p className="eyebrow">Categoría calculada</p>
+            <p className="text-xs font-bold uppercase tracking-[0.22em]" style={{ color: eventTheme.primary }}>Categoría calculada</p>
             {!formData.modality_id ? (
               <p className="mt-3 text-sm text-slate-500">Selecciona una modalidad.</p>
             ) : categoriasDeModalidad.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">Este evento todavía no tiene categorías configuradas para esta modalidad.</p>
             ) : categoriaCalculada ? (
-              <div className="mt-4 rounded-xl bg-slate-950 p-5 text-white">
+              <div className="mt-4 rounded-xl p-5 text-white" style={{ backgroundColor: eventTheme.secondary }}>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-300" />
                   <div>
@@ -434,7 +458,16 @@ export default function RegistrationPage() {
             )}
           </div>
 
-          <button type="submit" form="registration-form" disabled={!formularioValido || sending} className="btn-primary w-full">
+          <button
+            type="submit"
+            form="registration-form"
+            disabled={!formularioValido || sending}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              backgroundColor: eventTheme.primary,
+              boxShadow: `0 18px 34px ${eventTheme.primary}22`,
+            }}
+          >
             {sending ? 'Registrando...' : editAccessToken ? 'Actualizar preinscripcion' : 'Crear preinscripcion'}
           </button>
         </aside>
@@ -448,7 +481,7 @@ function FormSection({ icon: Icon, title, children }) {
     <section className="space-y-4">
       <div className="flex items-center gap-3">
         {Icon && (
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-700">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--event-primary) 10%, white)', color: 'var(--event-primary)' }}>
             <Icon className="h-5 w-5" />
           </span>
         )}

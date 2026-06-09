@@ -30,6 +30,9 @@ const initialEventForm = {
   hora_salida: '',
   organizador: '',
   inscripciones_abiertas: true,
+  color_primario: '#6A1A24',
+  color_secundario: '#15070A',
+  color_acento: '#F4D35E',
   imagen_hero: '',
   imagen_portada: '',
   imagen_convocatoria: '',
@@ -174,6 +177,9 @@ export default function AdminEventSetupPage() {
         hora_salida: data.hora_salida || '',
         organizador: data.organizador || '',
         inscripciones_abiertas: Boolean(data.inscripciones_abiertas),
+        color_primario: data.color_primario || '#6A1A24',
+        color_secundario: data.color_secundario || '#15070A',
+        color_acento: data.color_acento || '#F4D35E',
         imagen_hero: data.imagen_hero || '',
         imagen_portada: data.imagen_portada || '',
         imagen_convocatoria: data.imagen_convocatoria || '',
@@ -256,6 +262,9 @@ export default function AdminEventSetupPage() {
         hora_salida: eventForm.hora_salida.trim() || null,
         organizador: eventForm.organizador.trim() || null,
         inscripciones_abiertas: eventForm.inscripciones_abiertas,
+        color_primario: eventForm.color_primario.trim() || null,
+        color_secundario: eventForm.color_secundario.trim() || null,
+        color_acento: eventForm.color_acento.trim() || null,
         imagen_hero: eventForm.imagen_hero.trim() || null,
         imagen_portada: eventForm.imagen_portada.trim() || null,
         imagen_convocatoria: eventForm.imagen_convocatoria.trim() || null,
@@ -650,6 +659,34 @@ export default function AdminEventSetupPage() {
                 </Field>
               </div>
               <div className="md:col-span-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-bold text-slate-900">Colores del evento</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                    Personalizan botones, acentos, chips y recuadros en la página del evento y el formulario de inscripción.
+                  </p>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                    <Field label="Primario">
+                      <div className="flex gap-2">
+                        <input type="color" name="color_primario" value={eventForm.color_primario || '#6A1A24'} onChange={handleEventChange} className="h-12 w-14 rounded-xl border border-slate-300 bg-white p-1" />
+                        <input name="color_primario" value={eventForm.color_primario || ''} onChange={handleEventChange} className={inputClass()} />
+                      </div>
+                    </Field>
+                    <Field label="Secundario">
+                      <div className="flex gap-2">
+                        <input type="color" name="color_secundario" value={eventForm.color_secundario || '#15070A'} onChange={handleEventChange} className="h-12 w-14 rounded-xl border border-slate-300 bg-white p-1" />
+                        <input name="color_secundario" value={eventForm.color_secundario || ''} onChange={handleEventChange} className={inputClass()} />
+                      </div>
+                    </Field>
+                    <Field label="Acento">
+                      <div className="flex gap-2">
+                        <input type="color" name="color_acento" value={eventForm.color_acento || '#F4D35E'} onChange={handleEventChange} className="h-12 w-14 rounded-xl border border-slate-300 bg-white p-1" />
+                        <input name="color_acento" value={eventForm.color_acento || ''} onChange={handleEventChange} className={inputClass()} />
+                      </div>
+                    </Field>
+                  </div>
+                </div>
+              </div>
+              <div className="md:col-span-2">
                 <Field label="URL de imagen hero del evento">
                   <input name="imagen_hero" value={eventForm.imagen_hero} onChange={handleEventChange} placeholder="/uploads/eventos/hero-evento.png o https://..." className={inputClass()} />
                 </Field>
@@ -861,7 +898,7 @@ export default function AdminEventSetupPage() {
                 <input name="imagen" value={kitItemForm.imagen} onChange={handleFormChange(setKitItemForm)} placeholder="/uploads/eventos/playera.png o https://..." className={inputClass()} />
               </Field>
               <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                <Field label="Orden">
+                <Field label="Orden de aparición">
                   <input type="number" name="orden" value={kitItemForm.orden} onChange={handleFormChange(setKitItemForm)} className={inputClass()} />
                 </Field>
                 <label className="flex min-h-12 items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
@@ -872,6 +909,9 @@ export default function AdminEventSetupPage() {
               <button disabled={saving === 'kit-item'} className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white disabled:opacity-60">
                 {saving === 'kit-item' ? 'Creando...' : 'Crear cuadro del kit'}
               </button>
+              <p className="text-xs font-semibold leading-5 text-slate-500">
+                Orden de aparición: los números más bajos se muestran primero. Ejemplo: Playera 1, Medalla 2, Morral 3.
+              </p>
             </form>
 
             <div className="mt-6 space-y-4">
@@ -893,7 +933,10 @@ export default function AdminEventSetupPage() {
                     <input value={item.descripcion || ''} onChange={(e) => handleKitItemChange(item.id, 'descripcion', e.target.value)} placeholder="Descripción corta" className={inputClass()} />
                     <input value={item.imagen || ''} onChange={(e) => handleKitItemChange(item.id, 'imagen', e.target.value)} placeholder="URL de imagen" className={inputClass()} />
                     <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                      <input type="number" value={item.orden ?? 0} onChange={(e) => handleKitItemChange(item.id, 'orden', e.target.value)} className={inputClass()} />
+                      <label className="block">
+                        <span className="text-sm font-semibold text-slate-700">Orden de aparición</span>
+                        <input type="number" value={item.orden ?? 0} onChange={(e) => handleKitItemChange(item.id, 'orden', e.target.value)} className={`${inputClass()} mt-2`} />
+                      </label>
                       <label className="flex min-h-12 items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
                         <input type="checkbox" checked={Boolean(item.visible)} onChange={(e) => handleKitItemChange(item.id, 'visible', e.target.checked)} />
                         Visible
