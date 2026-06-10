@@ -6,6 +6,107 @@ SudorTime es un sistema web para gestionar eventos deportivos, principalmente ca
 
 El sistema se esta construyendo por fases. La prioridad actual es dejar funcional y confiable el flujo de inscripcion, antes de cerrar todo lo relacionado con resultados RFID.
 
+## Contexto Rapido Para Futuras Sesiones
+
+Leer este bloque antes de tocar UX/eventos/admin. Resume decisiones recientes para evitar redescubrir contexto en cada conversacion.
+
+- La experiencia publica se esta redisenando mobile first. La prioridad es que el corredor se inscriba con el menor scroll posible.
+- La pagina principal marca la estetica base: hero energetico, imagen de fondo y colores de marca. Las paginas internas deben sentirse integradas con esa misma familia visual.
+- La pagina de evento no debe parecer otro sitio. Debe usar hero similar al principal, CTA temprano y CTA sticky en mobile.
+- El hero del evento no debe contener la descripcion larga. La convocatoria/descripcion va mas abajo.
+- No mostrar "desde $..." como gancho principal porque puede confundir si el precio menor corresponde a una carrera infantil u otra distancia muy distinta.
+- El formulario de inscripcion debe sentirse enfocado y rapido. Por ahora no necesita hero completo, pero si debe heredar colores del evento.
+- La pantalla de pago confirmado usa un "dorsal digital" como momento celebratorio, con opcion de compartir/descargar.
+- Los precios y leyendas de pago no deben contaminar la pantalla de inscripcion confirmada; ahi el usuario ya debe sentir que esta dentro.
+
+## Personalizacion Visual Y De Contenido Por Evento
+
+Campos relevantes en `events`:
+
+```text
+cuenta_regresiva_at
+color_primario
+color_secundario
+color_acento
+imagen_hero
+imagen_dorsal
+```
+
+Uso esperado:
+
+- `color_primario`, `color_secundario`, `color_acento`: tematizan textos, botones, iconos, recuadros y detalles visuales del evento.
+- `imagen_hero`: hero personalizado por evento. Si no existe, usar la imagen global de la pagina principal o fallback local.
+- `imagen_dorsal`: imagen base opcional para el dorsal digital de confirmacion. Si no existe, usar el diseno default.
+- `cuenta_regresiva_at`: fecha/hora objetivo para mostrar cuenta regresiva en la pagina publica del evento.
+
+El kit del corredor ya no debe estar hardcodeado solo como playera/medalla. Existe una tabla configurable:
+
+```text
+event_kit_items
+```
+
+Campos principales:
+
+```text
+titulo
+descripcion
+imagen
+orden
+visible
+```
+
+`orden` significa orden de aparicion: los numeros mas bajos se muestran primero. Esto permite que un organizador muestre solo camiseta, o camiseta/medalla/morral/numero/etc. segun lo que incluya su carrera.
+
+## Pantallas Publicas Recientes
+
+### Pagina De Evento
+
+Archivo principal:
+
+```text
+frontend/src/pages/EventPage.jsx
+```
+
+Decisiones UX:
+
+- Mobile first.
+- Hero integrado con la estetica principal.
+- Sin descripcion larga dentro del hero.
+- Cuatro recuadros de informacion esencial.
+- CTA visible temprano y CTA sticky en mobile.
+- Cuenta regresiva si `cuenta_regresiva_at` existe.
+- Kit configurable desde admin.
+- Convocatoria, galeria y detalles mas abajo, sin competir con el CTA.
+
+### Formulario De Inscripcion
+
+Archivo principal:
+
+```text
+frontend/src/pages/RegistrationPage.jsx
+```
+
+Decisiones UX:
+
+- Pantalla enfocada, no una segunda landing.
+- Hereda colores del evento.
+- Prioridad: elegir modalidad/categoria/talla y completar datos sin distracciones.
+
+### Confirmacion De Pago
+
+Archivo principal:
+
+```text
+frontend/src/pages/PaymentPage.jsx
+```
+
+Decisiones UX:
+
+- Si el pago ya esta aprobado, no mostrar banner de espera ni boton de actualizar estado.
+- El centro visual es el dorsal digital.
+- Permitir compartir o descargar imagen de confirmacion.
+- Puede usar `imagen_dorsal` como base por evento; si falta, usar dorsal default.
+
 ## Fases Del Sistema
 
 ### Eventos
