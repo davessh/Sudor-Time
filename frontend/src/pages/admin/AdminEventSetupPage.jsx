@@ -157,19 +157,20 @@ function AssetUpload({ title, imageUrl, emptyText, file, onFileChange, onSubmit,
   )
 }
 
-function ImageLibraryField({ label, value, placeholder, assets, onChange, onUpload, saving }) {
+function ImageLibraryField({ label, value, placeholder, onChange, onUpload, onOpenLibrary, saving }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <Field label={label}>
         <input value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={inputClass()} />
       </Field>
-      <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-        <select value={value || ''} onChange={(e) => onChange(e.target.value)} className={inputClass()}>
-          <option value="">Elegir imagen subida...</option>
-          {assets.map((asset) => (
-            <option key={asset.path} value={asset.path}>{asset.filename}</option>
-          ))}
-        </select>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={onOpenLibrary}
+          className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:border-slate-900 hover:bg-slate-100"
+        >
+          Elegir de biblioteca
+        </button>
         <label className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90">
           {saving ? 'Subiendo...' : 'Subir nueva'}
           <input
@@ -186,19 +187,27 @@ function ImageLibraryField({ label, value, placeholder, assets, onChange, onUplo
         </label>
       </div>
       {value ? (
-        <img src={getApiAssetUrl(value)} alt={label} className="mt-3 h-32 w-full rounded-xl border border-slate-200 bg-white object-cover" />
+        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <img src={getApiAssetUrl(value)} alt={label} className="h-36 w-full object-cover" />
+          <div className="flex items-center justify-between gap-3 px-3 py-2">
+            <p className="truncate text-xs font-semibold text-slate-500">{value}</p>
+            <button type="button" onClick={() => onChange('')} className="text-xs font-black text-red-700">Quitar</button>
+          </div>
+        </div>
       ) : null}
     </div>
   )
 }
 
-function AssetLibraryPanel({ assets, onUpload, uploading }) {
+function AssetLibraryPanel({ assets, onUpload, onOpenLibrary, uploading }) {
+  const previewAssets = assets.slice(0, 4)
+
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black text-slate-950">Imagenes subidas</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Archivos disponibles en el persistent disk.</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{assets.length} archivo(s) en el persistent disk.</p>
         </div>
         <label className="shrink-0 cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">
           {uploading ? 'Subiendo...' : 'Subir'}
@@ -215,17 +224,94 @@ function AssetLibraryPanel({ assets, onUpload, uploading }) {
           />
         </label>
       </div>
-      <div className="mt-4 grid max-h-[360px] grid-cols-2 gap-2 overflow-y-auto pr-1">
+      <button
+        type="button"
+        onClick={onOpenLibrary}
+        className="mt-4 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-black text-slate-800 transition hover:border-slate-900 hover:bg-white"
+      >
+        Abrir biblioteca visual
+      </button>
+      <div className="mt-3 grid grid-cols-4 gap-2">
         {assets.length === 0 ? (
-          <p className="col-span-2 rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs font-semibold text-slate-500">
+          <p className="col-span-4 rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs font-semibold text-slate-500">
             Todavia no hay imagenes.
           </p>
-        ) : assets.map((asset) => (
-          <a key={asset.path} href={getApiAssetUrl(asset.path)} target="_blank" rel="noreferrer" className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-            <img src={getApiAssetUrl(asset.path)} alt={asset.filename} className="h-20 w-full object-cover transition group-hover:scale-105" />
-            <p className="truncate px-2 py-1 text-[11px] font-semibold text-slate-600">{asset.filename}</p>
-          </a>
+        ) : previewAssets.map((asset) => (
+          <button key={asset.path} type="button" onClick={onOpenLibrary} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            <img src={getApiAssetUrl(asset.path)} alt={asset.filename} className="h-14 w-full object-cover" />
+          </button>
         ))}
+      </div>
+    </div>
+  )
+}
+
+function AssetLibraryModal({ open, assets, title, uploading, onUpload, onSelect, onClose }) {
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+      <div className="max-h-[92vh] w-full overflow-hidden rounded-t-[1.75rem] bg-white shadow-2xl sm:mx-auto sm:max-w-5xl sm:rounded-[1.75rem]">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Biblioteca de imagenes</p>
+            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{title || 'Selecciona una imagen'}</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">Haz clic en una imagen para usarla en este campo.</p>
+          </div>
+          <div className="flex gap-2">
+            <label className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:opacity-90">
+              {uploading ? 'Subiendo...' : 'Subir nueva'}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) onUpload(file)
+                  e.target.value = ''
+                }}
+                className="sr-only"
+              />
+            </label>
+            <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
+              Cerrar
+            </button>
+          </div>
+        </div>
+
+        <div className="max-h-[68vh] overflow-y-auto p-5">
+          {assets.length === 0 ? (
+            <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <div>
+                <p className="font-black text-slate-900">Todavia no hay imagenes subidas</p>
+                <p className="mt-2 text-sm text-slate-500">Sube una desde este modal y quedara disponible para otros campos.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {assets.map((asset) => (
+                <button
+                  key={asset.path}
+                  type="button"
+                  onClick={() => {
+                    if (onSelect) {
+                      onSelect(asset.path)
+                    } else {
+                      window.open(getApiAssetUrl(asset.path), '_blank', 'noopener,noreferrer')
+                    }
+                  }}
+                  className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-900 hover:shadow-lg"
+                >
+                  <img src={getApiAssetUrl(asset.path)} alt={asset.filename} className="aspect-[4/3] w-full bg-slate-100 object-cover transition group-hover:scale-[1.03]" />
+                  <div className="p-3">
+                    <p className="truncate text-sm font-black text-slate-900">{asset.filename}</p>
+                    <p className="mt-1 truncate text-xs font-semibold text-slate-500">{asset.path}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -275,7 +361,7 @@ function AdminSetupGuide({ setup }) {
   ]
 
   return (
-    <aside className="xl:sticky xl:top-6 xl:self-start">
+    <aside>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Flujo de configuracion</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -331,6 +417,7 @@ export default function AdminEventSetupPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
   const [assetLibraryUploading, setAssetLibraryUploading] = useState(false)
+  const [assetPicker, setAssetPicker] = useState({ open: false, title: '', onSelect: null })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -430,6 +517,38 @@ export default function AdminEventSetupPage() {
       ...prev,
       [name]: value,
     }))
+  }
+
+  function openAssetPicker(title, onSelect) {
+    setAssetPicker({ open: true, title, onSelect })
+  }
+
+  function closeAssetPicker() {
+    setAssetPicker({ open: false, title: '', onSelect: null })
+  }
+
+  function selectAssetFromPicker(path) {
+    assetPicker.onSelect?.(path)
+    closeAssetPicker()
+  }
+
+  async function uploadAssetFromPicker(file) {
+    try {
+      setAssetLibraryUploading(true)
+      const asset = await uploadEventAsset(file)
+      await loadAssets()
+      if (assetPicker.onSelect) {
+        assetPicker.onSelect(asset.path)
+        closeAssetPicker()
+        showSuccess('Imagen subida y seleccionada.')
+      } else {
+        showSuccess('Imagen agregada a la biblioteca.')
+      }
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen')
+    } finally {
+      setAssetLibraryUploading(false)
+    }
   }
 
   async function uploadAssetForField(fieldName, file) {
@@ -931,10 +1050,25 @@ export default function AdminEventSetupPage() {
         </div>
       )}
 
+      <AssetLibraryModal
+        open={assetPicker.open}
+        assets={assets}
+        title={assetPicker.title}
+        uploading={assetLibraryUploading}
+        onUpload={uploadAssetFromPicker}
+        onSelect={selectAssetFromPicker}
+        onClose={closeAssetPicker}
+      />
+
       <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <div>
+        <div className="space-y-4 xl:sticky xl:top-6 xl:self-start">
           <AdminSetupGuide setup={setup} />
-          <AssetLibraryPanel assets={assets} onUpload={uploadAssetToLibrary} uploading={assetLibraryUploading} />
+          <AssetLibraryPanel
+            assets={assets}
+            onUpload={uploadAssetToLibrary}
+            onOpenLibrary={() => openAssetPicker('Imagenes subidas', null)}
+            uploading={assetLibraryUploading}
+          />
         </div>
 
         <div className="space-y-6">
@@ -1004,9 +1138,9 @@ export default function AdminEventSetupPage() {
                   label="Imagen hero del evento"
                   value={eventForm.imagen_hero}
                   placeholder="/uploads/eventos/hero-evento.png o https://..."
-                  assets={assets}
                   onChange={(value) => setEventImageField('imagen_hero', value)}
                   onUpload={(file) => uploadAssetForField('imagen_hero', file)}
+                  onOpenLibrary={() => openAssetPicker('Imagen hero del evento', (path) => setEventImageField('imagen_hero', path))}
                   saving={saving === 'asset-imagen_hero'}
                 />
               </div>
@@ -1015,9 +1149,9 @@ export default function AdminEventSetupPage() {
                   label="Foto de portada"
                   value={eventForm.imagen_portada}
                   placeholder="/uploads/eventos/portada.png o https://..."
-                  assets={assets}
                   onChange={(value) => setEventImageField('imagen_portada', value)}
                   onUpload={(file) => uploadAssetForField('imagen_portada', file)}
+                  onOpenLibrary={() => openAssetPicker('Foto de portada', (path) => setEventImageField('imagen_portada', path))}
                   saving={saving === 'asset-imagen_portada'}
                 />
               </div>
@@ -1026,9 +1160,9 @@ export default function AdminEventSetupPage() {
                   label="Imagen de convocatoria"
                   value={eventForm.imagen_convocatoria}
                   placeholder="/uploads/eventos/imagen.png o https://..."
-                  assets={assets}
                   onChange={(value) => setEventImageField('imagen_convocatoria', value)}
                   onUpload={(file) => uploadAssetForField('imagen_convocatoria', file)}
+                  onOpenLibrary={() => openAssetPicker('Imagen de convocatoria', (path) => setEventImageField('imagen_convocatoria', path))}
                   saving={saving === 'asset-imagen_convocatoria'}
                 />
               </div>
@@ -1037,9 +1171,9 @@ export default function AdminEventSetupPage() {
                   label="Imagen de playera"
                   value={eventForm.imagen_playera}
                   placeholder="/uploads/eventos/playera.png o https://..."
-                  assets={assets}
                   onChange={(value) => setEventImageField('imagen_playera', value)}
                   onUpload={(file) => uploadAssetForField('imagen_playera', file)}
+                  onOpenLibrary={() => openAssetPicker('Imagen de playera', (path) => setEventImageField('imagen_playera', path))}
                   saving={saving === 'asset-imagen_playera'}
                 />
               </div>
@@ -1048,9 +1182,9 @@ export default function AdminEventSetupPage() {
                   label="Imagen de medalla"
                   value={eventForm.imagen_medalla}
                   placeholder="/uploads/eventos/medalla.png o https://..."
-                  assets={assets}
                   onChange={(value) => setEventImageField('imagen_medalla', value)}
                   onUpload={(file) => uploadAssetForField('imagen_medalla', file)}
+                  onOpenLibrary={() => openAssetPicker('Imagen de medalla', (path) => setEventImageField('imagen_medalla', path))}
                   saving={saving === 'asset-imagen_medalla'}
                 />
               </div>
@@ -1059,9 +1193,9 @@ export default function AdminEventSetupPage() {
                   label="Base de dorsal"
                   value={eventForm.imagen_dorsal}
                   placeholder="/uploads/eventos/dorsal.png o https://..."
-                  assets={assets}
                   onChange={(value) => setEventImageField('imagen_dorsal', value)}
                   onUpload={(file) => uploadAssetForField('imagen_dorsal', file)}
+                  onOpenLibrary={() => openAssetPicker('Base de dorsal', (path) => setEventImageField('imagen_dorsal', path))}
                   saving={saving === 'asset-imagen_dorsal'}
                 />
               </div>
@@ -1246,9 +1380,9 @@ export default function AdminEventSetupPage() {
                 label="Imagen opcional"
                 value={kitItemForm.imagen}
                 placeholder="/uploads/eventos/playera.png o https://..."
-                assets={assets}
                 onChange={(value) => setKitItemForm((prev) => ({ ...prev, imagen: value }))}
                 onUpload={uploadAssetForKitItemForm}
+                onOpenLibrary={() => openAssetPicker('Imagen del kit', (path) => setKitItemForm((prev) => ({ ...prev, imagen: path })))}
                 saving={saving === 'asset-kit-form'}
               />
               <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -1289,9 +1423,9 @@ export default function AdminEventSetupPage() {
                       label="Imagen del cuadro"
                       value={item.imagen || ''}
                       placeholder="/uploads/eventos/playera.png o https://..."
-                      assets={assets}
                       onChange={(value) => handleKitItemChange(item.id, 'imagen', value)}
                       onUpload={(file) => uploadAssetForKitItem(item.id, file)}
+                      onOpenLibrary={() => openAssetPicker('Imagen del cuadro', (path) => handleKitItemChange(item.id, 'imagen', path))}
                       saving={saving === `asset-kit-${item.id}`}
                     />
                     <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -1395,9 +1529,9 @@ export default function AdminEventSetupPage() {
                   label="Plantilla de personalizacion"
                   value={eventForm.dorsal_personalizacion_image}
                   placeholder="/uploads/eventos/dorsal-personalizacion.png o https://..."
-                  assets={assets}
                   onChange={(value) => setEventImageField('dorsal_personalizacion_image', value)}
                   onUpload={(file) => uploadAssetForField('dorsal_personalizacion_image', file)}
+                  onOpenLibrary={() => openAssetPicker('Plantilla de personalizacion', (path) => setEventImageField('dorsal_personalizacion_image', path))}
                   saving={saving === 'asset-dorsal_personalizacion_image'}
                 />
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">

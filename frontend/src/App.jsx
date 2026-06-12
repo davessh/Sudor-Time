@@ -18,6 +18,7 @@ import AdminEventSetupPage from './pages/admin/AdminEventSetupPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminSiteSettingsPage from './pages/admin/AdminSiteSettingsPage'
 import AdminGalleryPage from './pages/admin/AdminGalleryPage'
+import AdminAssetsPage from './pages/admin/AdminAssetsPage'
 import RequireAdmin from './components/admin/RequireAdmin'
 import { ADMIN_ENTRY_PATH } from './auth/adminAuth'
 
@@ -45,6 +46,7 @@ export default function App() {
       <Route path="/admin/lecturas" element={adminPage(<AdminReadsPage />)} />
       <Route path="/admin/ajustes" element={adminPage(<AdminSiteSettingsPage />)} />
       <Route path="/admin/galeria" element={adminPage(<AdminGalleryPage />)} />
+      <Route path="/admin/archivos" element={adminPage(<AdminAssetsPage />)} />
       <Route path="/admin/eventos/:id/resultados" element={adminPage(<AdminEventResultsPage />)}/>
       <Route path="/admin/eventos/:id/resultados/print" element={adminPage(<AdminEventResultsPrintPage />)}/>
     </Routes>

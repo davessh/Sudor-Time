@@ -2,6 +2,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -17,10 +18,36 @@ UPLOADS_DIR = EVENT_UPLOADS_DIR
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 PROMO_ACTIVE_STATUSES = ("pending_payment", "confirmed")
+EVENT_IMAGE_FIELDS = (
+    "imagen_hero",
+    "imagen_portada",
+    "imagen_convocatoria",
+    "imagen_playera",
+    "imagen_medalla",
+    "imagen_dorsal",
+    "dorsal_personalizacion_image",
+)
+
+
+class AssetRenameRequest(BaseModel):
+    filename: str
 
 
 def _public_upload_path(filename: str) -> str:
     return f"/uploads/eventos/{filename}"
+
+
+def _safe_asset_path(filename: str) -> Path:
+    safe_name = Path(filename or "").name
+    if not safe_name or safe_name != filename or Path(safe_name).suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Nombre de archivo no valido")
+
+    path = UPLOADS_DIR / safe_name
+    resolved_uploads = UPLOADS_DIR.resolve()
+    resolved_path = path.resolve()
+    if resolved_uploads not in resolved_path.parents and resolved_path != resolved_uploads:
+        raise HTTPException(status_code=400, detail="Ruta de archivo no valida")
+    return path
 
 
 def _asset_response(path: Path) -> dict:
@@ -118,6 +145,47 @@ def listar_assets_eventos(limit: int = 120):
 @router.post("/assets/upload", dependencies=[Depends(require_admin)])
 async def subir_asset_evento(file: UploadFile = File(...)):
     return await _guardar_imagen_asset(file, "asset-evento")
+
+
+def _replace_asset_references(db: Session, old_path: str, new_path: str | None):
+    for field in EVENT_IMAGE_FIELDS:
+        for event in db.query(Event).filter(getattr(Event, field) == old_path).all():
+            setattr(event, field, new_path)
+
+    for item in db.query(EventKitItem).filter(EventKitItem.imagen == old_path).all():
+        item.imagen = new_path
+
+
+@router.put("/assets/{filename}", dependencies=[Depends(require_admin)])
+def renombrar_asset_evento(filename: str, data: AssetRenameRequest, db: Session = Depends(get_db)):
+    current_path = _safe_asset_path(filename)
+    if not current_path.exists():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    new_name = Path(data.filename or "").name
+    if Path(new_name).suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+        new_name = f"{new_name}{current_path.suffix.lower()}"
+    target_path = _safe_asset_path(new_name)
+
+    if target_path.exists():
+        raise HTTPException(status_code=400, detail="Ya existe un archivo con ese nombre")
+
+    current_path.rename(target_path)
+    _replace_asset_references(db, _public_upload_path(current_path.name), _public_upload_path(target_path.name))
+    db.commit()
+    return _asset_response(target_path)
+
+
+@router.delete("/assets/{filename}", dependencies=[Depends(require_admin)])
+def eliminar_asset_evento(filename: str, db: Session = Depends(get_db)):
+    asset_path = _safe_asset_path(filename)
+    if not asset_path.exists():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    asset_path.unlink()
+    _replace_asset_references(db, _public_upload_path(asset_path.name), None)
+    db.commit()
+    return {"message": "Archivo eliminado correctamente"}
 
 
 @router.get("/{event_id}/setup")

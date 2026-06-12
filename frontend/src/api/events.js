@@ -30,6 +30,19 @@ export function uploadEventAsset(file) {
   })
 }
 
+export function renameEventAsset(filename, newFilename) {
+  return apiRequest(`/events/assets/${encodeURIComponent(filename)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ filename: newFilename }),
+  })
+}
+
+export function deleteEventAsset(filename) {
+  return apiRequest(`/events/assets/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function createEvent(payload) {
   return apiRequest('/events', {
     method: 'POST',

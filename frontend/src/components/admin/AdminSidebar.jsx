@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, Images, LayoutDashboard, RadioTower, Settings } from 'lucide-react'
+import { Activity, ClipboardList, FolderOpen, Images, LayoutDashboard, RadioTower, Settings } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 export default function AdminSidebar() {
@@ -8,7 +8,8 @@ export default function AdminSidebar() {
     { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/admin/eventos', label: 'Eventos', icon: ClipboardList },
     { to: '/admin/ajustes', label: 'Ajustes', icon: Settings },
-    { to: '/admin/galeria', label: 'Galería', icon: Images },
+    { to: '/admin/galeria', label: 'Galeria', icon: Images },
+    { to: '/admin/archivos', label: 'Archivos', icon: FolderOpen },
     { to: '/admin/tags', label: 'Tags', icon: Activity },
     { to: '/admin/lecturas', label: 'Lecturas', icon: RadioTower },
   ]
@@ -24,7 +25,10 @@ export default function AdminSidebar() {
         <nav className="max-w-[62vw] overflow-x-auto lg:mt-8 lg:max-w-none lg:overflow-visible">
           <div className="flex gap-2 lg:block lg:space-y-2">
             {links.map((link) => {
-              const activo = location.pathname === link.to
+              const activo =
+                link.to === '/admin'
+                  ? location.pathname === '/admin'
+                  : location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)
               const Icon = link.icon
 
               return (
