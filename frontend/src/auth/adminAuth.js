@@ -1,4 +1,5 @@
 const ADMIN_TOKEN_KEY = 'sudortime_admin_token'
+export const ADMIN_ENTRY_PATH = import.meta.env.VITE_ADMIN_ENTRY_PATH || '/equipo-sudortime'
 
 export function getAdminToken() {
   return sessionStorage.getItem(ADMIN_TOKEN_KEY)

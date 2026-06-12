@@ -1,11 +1,11 @@
 import { LogOut } from 'lucide-react'
 import AdminSidebar from './AdminSidebar'
-import { clearAdminToken } from '../../auth/adminAuth'
+import { ADMIN_ENTRY_PATH, clearAdminToken } from '../../auth/adminAuth'
 
 export default function AdminLayout({ title, subtitle, children, actions }) {
   function logout() {
     clearAdminToken()
-    window.location.href = '/admin/login'
+    window.location.href = ADMIN_ENTRY_PATH
   }
 
   return (

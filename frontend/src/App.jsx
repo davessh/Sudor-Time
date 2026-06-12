@@ -19,6 +19,7 @@ import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminSiteSettingsPage from './pages/admin/AdminSiteSettingsPage'
 import AdminGalleryPage from './pages/admin/AdminGalleryPage'
 import RequireAdmin from './components/admin/RequireAdmin'
+import { ADMIN_ENTRY_PATH } from './auth/adminAuth'
 
 function adminPage(element) {
   return <RequireAdmin>{element}</RequireAdmin>
@@ -35,7 +36,7 @@ export default function App() {
       <Route path="/consultar-inscripcion" element={<RegistrationLookupPage />} />
       <Route path="/inscripcion/:accessToken/pago" element={<PaymentPage />} />
       <Route path="/corredor/:id" element={<RunnerDetailPage />} />
-      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path={ADMIN_ENTRY_PATH} element={<AdminLoginPage />} />
       <Route path="/admin" element={adminPage(<AdminDashboard />)} />
       <Route path="/admin/eventos" element={adminPage(<AdminEventsPage />)} />
       <Route path="/admin/eventos/:id/inscritos" element={adminPage(<AdminRegistrationsPage />)}/>

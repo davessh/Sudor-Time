@@ -23,6 +23,16 @@ def _public_upload_path(filename: str) -> str:
     return f"/uploads/eventos/{filename}"
 
 
+def _asset_response(path: Path) -> dict:
+    stat = path.stat()
+    return {
+        "filename": path.name,
+        "path": _public_upload_path(path.name),
+        "size": stat.st_size,
+        "updated_at": stat.st_mtime,
+    }
+
+
 def _looks_like_allowed_image(data: bytes, extension: str) -> bool:
     if extension in {".jpg", ".jpeg"}:
         return data.startswith(b"\xff\xd8\xff")
@@ -38,6 +48,39 @@ def _count_active_registrations(db: Session, event_id: int) -> int:
         Registration.event_id == event_id,
         Registration.status.in_(PROMO_ACTIVE_STATUSES),
     ).count()
+
+
+async def _guardar_imagen_asset(file: UploadFile, prefix: str = "asset") -> dict:
+    extension = Path(file.filename or "").suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Sube una imagen JPG, PNG o WEBP")
+
+    content_type = file.content_type or ""
+    if content_type and not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{prefix}-{uuid4().hex}{extension}"
+    destination = UPLOADS_DIR / filename
+
+    total_bytes = 0
+    first_chunk = b""
+    with destination.open("wb") as buffer:
+        while chunk := await file.read(1024 * 1024):
+            if not first_chunk:
+                first_chunk = chunk[:16]
+                if not _looks_like_allowed_image(first_chunk, extension):
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(status_code=400, detail="El archivo no parece ser una imagen valida")
+
+            total_bytes += len(chunk)
+            if total_bytes > MAX_UPLOAD_BYTES:
+                destination.unlink(missing_ok=True)
+                raise HTTPException(status_code=400, detail="La imagen no debe superar 5 MB")
+
+            buffer.write(chunk)
+
+    return _asset_response(destination)
 
 
 @router.post("", response_model=EventResponse, dependencies=[Depends(require_admin)])
@@ -57,6 +100,24 @@ def crear_evento(data: EventCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=list[EventResponse])
 def listar_eventos(db: Session = Depends(get_db)):
     return db.query(Event).order_by(Event.fecha.desc()).all()
+
+
+@router.get("/assets", dependencies=[Depends(require_admin)])
+def listar_assets_eventos(limit: int = 120):
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    safe_limit = min(max(limit, 1), 300)
+    files = [
+        path
+        for path in UPLOADS_DIR.iterdir()
+        if path.is_file() and path.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
+    ]
+    files.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    return {"assets": [_asset_response(path) for path in files[:safe_limit]]}
+
+
+@router.post("/assets/upload", dependencies=[Depends(require_admin)])
+async def subir_asset_evento(file: UploadFile = File(...)):
+    return await _guardar_imagen_asset(file, "asset-evento")
 
 
 @router.get("/{event_id}/setup")

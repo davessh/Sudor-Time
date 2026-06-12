@@ -5,9 +5,11 @@ import { getApiAssetUrl } from '../../api/client'
 import {
   createEventKitItem,
   deleteEventKitItem,
+  getEventAssets,
   getEventSetup,
   updateEvent,
   updateEventKitItem,
+  uploadEventAsset,
   uploadEventConvocatoria,
   uploadEventDorsal,
   uploadEventDorsalPersonalizacion,
@@ -88,6 +90,17 @@ const initialKitItemForm = {
   visible: true,
 }
 
+const setupSections = [
+  { id: 'basicos', label: 'Basicos', description: 'Nombre, fecha, lugar y estado.' },
+  { id: 'modalidades', label: 'Modalidades', description: 'Distancias y precios base.' },
+  { id: 'categorias', label: 'Categorias', description: 'Edad, sexo y clasificacion.' },
+  { id: 'identidad', label: 'Identidad visual', description: 'Hero, portada y colores.' },
+  { id: 'convocatoria', label: 'Convocatoria', description: 'Imagen oficial del evento.' },
+  { id: 'kit', label: 'Kit del corredor', description: 'Beneficios visibles al corredor.' },
+  { id: 'dorsal', label: 'Dorsal', description: 'Base y personalizacion.' },
+  { id: 'inventario', label: 'Inventario', description: 'Tallas y paquetes.' },
+]
+
 function money(value) {
   return `$${Number(value || 0).toFixed(2)}`
 }
@@ -97,9 +110,9 @@ function toNumberOrNull(value) {
   return Number(value)
 }
 
-function SectionCard({ title, subtitle, children }) {
+function SectionCard({ id, title, subtitle, children }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section id={id} className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-start-2">
       <div className="mb-5">
         <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
@@ -144,6 +157,80 @@ function AssetUpload({ title, imageUrl, emptyText, file, onFileChange, onSubmit,
   )
 }
 
+function ImageLibraryField({ label, value, placeholder, assets, onChange, onUpload, saving }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <Field label={label}>
+        <input value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={inputClass()} />
+      </Field>
+      <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+        <select value={value || ''} onChange={(e) => onChange(e.target.value)} className={inputClass()}>
+          <option value="">Elegir imagen subida...</option>
+          {assets.map((asset) => (
+            <option key={asset.path} value={asset.path}>{asset.filename}</option>
+          ))}
+        </select>
+        <label className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90">
+          {saving ? 'Subiendo...' : 'Subir nueva'}
+          <input
+            type="file"
+            accept="image/*"
+            disabled={saving}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onUpload(file)
+              e.target.value = ''
+            }}
+            className="sr-only"
+          />
+        </label>
+      </div>
+      {value ? (
+        <img src={getApiAssetUrl(value)} alt={label} className="mt-3 h-32 w-full rounded-xl border border-slate-200 bg-white object-cover" />
+      ) : null}
+    </div>
+  )
+}
+
+function AssetLibraryPanel({ assets, onUpload, uploading }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black text-slate-950">Imagenes subidas</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Archivos disponibles en el persistent disk.</p>
+        </div>
+        <label className="shrink-0 cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">
+          {uploading ? 'Subiendo...' : 'Subir'}
+          <input
+            type="file"
+            accept="image/*"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onUpload(file)
+              e.target.value = ''
+            }}
+            className="sr-only"
+          />
+        </label>
+      </div>
+      <div className="mt-4 grid max-h-[360px] grid-cols-2 gap-2 overflow-y-auto pr-1">
+        {assets.length === 0 ? (
+          <p className="col-span-2 rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs font-semibold text-slate-500">
+            Todavia no hay imagenes.
+          </p>
+        ) : assets.map((asset) => (
+          <a key={asset.path} href={getApiAssetUrl(asset.path)} target="_blank" rel="noreferrer" className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            <img src={getApiAssetUrl(asset.path)} alt={asset.filename} className="h-20 w-full object-cover transition group-hover:scale-105" />
+            <p className="truncate px-2 py-1 text-[11px] font-semibold text-slate-600">{asset.filename}</p>
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function DorsalPersonalizationPreview({ eventForm }) {
   const imageUrl = eventForm.dorsal_personalizacion_image || eventForm.imagen_dorsal
   const sampleText = 'TU FRASE'
@@ -179,10 +266,53 @@ function DorsalPersonalizationPreview({ eventForm }) {
   )
 }
 
+function AdminSetupGuide({ setup }) {
+  const metrics = [
+    { label: 'Modalidades', value: setup.modalities?.length || 0 },
+    { label: 'Categorias', value: setup.categories?.length || 0 },
+    { label: 'Kit', value: setup.kit_items?.length || 0 },
+    { label: 'Tallas', value: (setup.all_shirt_sizes || setup.shirt_sizes || []).length },
+  ]
+
+  return (
+    <aside className="xl:sticky xl:top-6 xl:self-start">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Flujo de configuracion</p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {metrics.map((item) => (
+            <div key={item.label} className="rounded-xl bg-slate-50 px-3 py-2">
+              <p className="text-xl font-black text-slate-950">{item.value}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{item.label}</p>
+            </div>
+          ))}
+        </div>
+        <nav className="mt-5 space-y-1">
+          {setupSections.map((section, index) => (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              className="group flex gap-3 rounded-xl px-3 py-3 text-sm transition hover:bg-slate-50"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-black text-white">
+                {index + 1}
+              </span>
+              <span>
+                <span className="block font-black text-slate-900 group-hover:text-slate-950">{section.label}</span>
+                <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{section.description}</span>
+              </span>
+            </a>
+          ))}
+        </nav>
+      </div>
+    </aside>
+  )
+}
+
 export default function AdminEventSetupPage() {
   const { id } = useParams()
 
   const [setup, setSetup] = useState(null)
+  const [assets, setAssets] = useState([])
   const [eventForm, setEventForm] = useState(initialEventForm)
   const [modalityForm, setModalityForm] = useState(initialModalityForm)
   const [categoryForm, setCategoryForm] = useState(initialCategoryForm)
@@ -200,6 +330,7 @@ export default function AdminEventSetupPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
+  const [assetLibraryUploading, setAssetLibraryUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -242,6 +373,7 @@ export default function AdminEventSetupPage() {
         dorsal_personalizacion_text_top: String(data.dorsal_personalizacion_text_top ?? 50),
         dorsal_personalizacion_text_size: String(data.dorsal_personalizacion_text_size ?? 36),
       })
+      await loadAssets()
     } catch (err) {
       setError(err.message || 'No se pudo cargar la configuración del evento')
     } finally {
@@ -250,6 +382,15 @@ export default function AdminEventSetupPage() {
   }
 
   const shirtSizesForAdmin = setup?.all_shirt_sizes || setup?.shirt_sizes || []
+
+  async function loadAssets() {
+    try {
+      const data = await getEventAssets()
+      setAssets(data.assets || [])
+    } catch (err) {
+      console.warn('No se pudo cargar biblioteca de imagenes', err)
+    }
+  }
 
   const selectedModalities = useMemo(() => {
     if (!setup) return []
@@ -281,6 +422,73 @@ export default function AdminEventSetupPage() {
         ...prev,
         [name]: type === 'checkbox' ? checked : value,
       }))
+    }
+  }
+
+  function setEventImageField(name, value) {
+    setEventForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  async function uploadAssetForField(fieldName, file) {
+    try {
+      setSaving(`asset-${fieldName}`)
+      const asset = await uploadEventAsset(file)
+      setEventImageField(fieldName, asset.path)
+      await loadAssets()
+      showSuccess('Imagen subida y seleccionada.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadAssetForKitItemForm(file) {
+    try {
+      setSaving('asset-kit-form')
+      const asset = await uploadEventAsset(file)
+      setKitItemForm((prev) => ({ ...prev, imagen: asset.path }))
+      await loadAssets()
+      showSuccess('Imagen subida y seleccionada para el kit.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadAssetForKitItem(itemId, file) {
+    try {
+      setSaving(`asset-kit-${itemId}`)
+      const asset = await uploadEventAsset(file)
+      setSetup((current) => ({
+        ...current,
+        kit_items: (current.kit_items || []).map((item) => (
+          item.id === itemId ? { ...item, imagen: asset.path } : item
+        )),
+      }))
+      await loadAssets()
+      showSuccess('Imagen subida y seleccionada para el elemento del kit.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadAssetToLibrary(file) {
+    try {
+      setAssetLibraryUploading(true)
+      await uploadEventAsset(file)
+      await loadAssets()
+      showSuccess('Imagen agregada a la biblioteca.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la imagen')
+    } finally {
+      setAssetLibraryUploading(false)
     }
   }
 
@@ -357,6 +565,7 @@ export default function AdminEventSetupPage() {
       await uploadEventConvocatoria(id, imageFile)
       setImageFile(null)
       await loadSetup()
+      await loadAssets()
       showSuccess('Convocatoria subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la convocatoria')
@@ -377,6 +586,7 @@ export default function AdminEventSetupPage() {
       await uploadEventPortada(id, coverImageFile)
       setCoverImageFile(null)
       await loadSetup()
+      await loadAssets()
       showSuccess('Foto de portada subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la foto de portada')
@@ -397,6 +607,7 @@ export default function AdminEventSetupPage() {
       await uploadEventHero(id, heroImageFile)
       setHeroImageFile(null)
       await loadSetup()
+      await loadAssets()
       showSuccess('Hero del evento subido correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir el hero del evento')
@@ -417,6 +628,7 @@ export default function AdminEventSetupPage() {
       await uploadEventPlayera(id, shirtImageFile)
       setShirtImageFile(null)
       await loadSetup()
+      await loadAssets()
       showSuccess('Imagen de playera subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la imagen de playera')
@@ -437,6 +649,7 @@ export default function AdminEventSetupPage() {
       await uploadEventMedalla(id, medalImageFile)
       setMedalImageFile(null)
       await loadSetup()
+      await loadAssets()
       showSuccess('Imagen de medalla subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la imagen de medalla')
@@ -457,6 +670,7 @@ export default function AdminEventSetupPage() {
       await uploadEventDorsal(id, bibImageFile)
       setBibImageFile(null)
       await loadSetup()
+      await loadAssets()
       showSuccess('Base de dorsal subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la base de dorsal')
@@ -477,6 +691,7 @@ export default function AdminEventSetupPage() {
       await uploadEventDorsalPersonalizacion(id, bibPersonalizationImageFile)
       setBibPersonalizationImageFile(null)
       await loadSetup()
+      await loadAssets()
       showSuccess('Plantilla de personalizacion subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la plantilla de personalizacion')
@@ -657,6 +872,7 @@ export default function AdminEventSetupPage() {
       await uploadEventKitItemImage(id, itemId, file)
       setKitItemFiles((current) => ({ ...current, [itemId]: null }))
       await loadSetup()
+      await loadAssets()
       showSuccess('Imagen del kit subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la imagen del kit')
@@ -715,9 +931,14 @@ export default function AdminEventSetupPage() {
         </div>
       )}
 
-      <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-8">
-          <SectionCard title="Datos generales" subtitle="Aquí llenas la información que se muestra en la página pública del evento.">
+      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <div>
+          <AdminSetupGuide setup={setup} />
+          <AssetLibraryPanel assets={assets} onUpload={uploadAssetToLibrary} uploading={assetLibraryUploading} />
+        </div>
+
+        <div className="space-y-6">
+          <SectionCard id="basicos" title="Datos generales" subtitle="Primero deja claro que evento estas vendiendo y si las inscripciones estan abiertas.">
             <form onSubmit={saveEvent} className="grid gap-4 md:grid-cols-2">
               <Field label="Nombre del evento">
                 <input name="nombre" value={eventForm.nombre} onChange={handleEventChange} required className={inputClass()} />
@@ -779,34 +1000,70 @@ export default function AdminEventSetupPage() {
                 </div>
               </div>
               <div className="md:col-span-2">
-                <Field label="URL de imagen hero del evento">
-                  <input name="imagen_hero" value={eventForm.imagen_hero} onChange={handleEventChange} placeholder="/uploads/eventos/hero-evento.png o https://..." className={inputClass()} />
-                </Field>
+                <ImageLibraryField
+                  label="Imagen hero del evento"
+                  value={eventForm.imagen_hero}
+                  placeholder="/uploads/eventos/hero-evento.png o https://..."
+                  assets={assets}
+                  onChange={(value) => setEventImageField('imagen_hero', value)}
+                  onUpload={(file) => uploadAssetForField('imagen_hero', file)}
+                  saving={saving === 'asset-imagen_hero'}
+                />
               </div>
               <div className="md:col-span-2">
-                <Field label="URL de foto de portada">
-                  <input name="imagen_portada" value={eventForm.imagen_portada} onChange={handleEventChange} placeholder="/uploads/eventos/portada.png o https://..." className={inputClass()} />
-                </Field>
+                <ImageLibraryField
+                  label="Foto de portada"
+                  value={eventForm.imagen_portada}
+                  placeholder="/uploads/eventos/portada.png o https://..."
+                  assets={assets}
+                  onChange={(value) => setEventImageField('imagen_portada', value)}
+                  onUpload={(file) => uploadAssetForField('imagen_portada', file)}
+                  saving={saving === 'asset-imagen_portada'}
+                />
               </div>
               <div className="md:col-span-2">
-                <Field label="URL de imagen de convocatoria">
-                  <input name="imagen_convocatoria" value={eventForm.imagen_convocatoria} onChange={handleEventChange} placeholder="/uploads/eventos/imagen.png o https://..." className={inputClass()} />
-                </Field>
+                <ImageLibraryField
+                  label="Imagen de convocatoria"
+                  value={eventForm.imagen_convocatoria}
+                  placeholder="/uploads/eventos/imagen.png o https://..."
+                  assets={assets}
+                  onChange={(value) => setEventImageField('imagen_convocatoria', value)}
+                  onUpload={(file) => uploadAssetForField('imagen_convocatoria', file)}
+                  saving={saving === 'asset-imagen_convocatoria'}
+                />
               </div>
               <div className="md:col-span-2">
-                <Field label="URL de imagen de playera">
-                  <input name="imagen_playera" value={eventForm.imagen_playera} onChange={handleEventChange} placeholder="/uploads/eventos/playera.png o https://..." className={inputClass()} />
-                </Field>
+                <ImageLibraryField
+                  label="Imagen de playera"
+                  value={eventForm.imagen_playera}
+                  placeholder="/uploads/eventos/playera.png o https://..."
+                  assets={assets}
+                  onChange={(value) => setEventImageField('imagen_playera', value)}
+                  onUpload={(file) => uploadAssetForField('imagen_playera', file)}
+                  saving={saving === 'asset-imagen_playera'}
+                />
               </div>
               <div className="md:col-span-2">
-                <Field label="URL de imagen de medalla">
-                  <input name="imagen_medalla" value={eventForm.imagen_medalla} onChange={handleEventChange} placeholder="/uploads/eventos/medalla.png o https://..." className={inputClass()} />
-                </Field>
+                <ImageLibraryField
+                  label="Imagen de medalla"
+                  value={eventForm.imagen_medalla}
+                  placeholder="/uploads/eventos/medalla.png o https://..."
+                  assets={assets}
+                  onChange={(value) => setEventImageField('imagen_medalla', value)}
+                  onUpload={(file) => uploadAssetForField('imagen_medalla', file)}
+                  saving={saving === 'asset-imagen_medalla'}
+                />
               </div>
               <div className="md:col-span-2">
-                <Field label="URL de base de dorsal">
-                  <input name="imagen_dorsal" value={eventForm.imagen_dorsal} onChange={handleEventChange} placeholder="/uploads/eventos/dorsal.png o https://..." className={inputClass()} />
-                </Field>
+                <ImageLibraryField
+                  label="Base de dorsal"
+                  value={eventForm.imagen_dorsal}
+                  placeholder="/uploads/eventos/dorsal.png o https://..."
+                  assets={assets}
+                  onChange={(value) => setEventImageField('imagen_dorsal', value)}
+                  onUpload={(file) => uploadAssetForField('imagen_dorsal', file)}
+                  saving={saving === 'asset-imagen_dorsal'}
+                />
               </div>
               <label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 md:col-span-2">
                 <input type="checkbox" name="inscripciones_abiertas" checked={eventForm.inscripciones_abiertas} onChange={handleEventChange} />
@@ -820,7 +1077,7 @@ export default function AdminEventSetupPage() {
             </form>
           </SectionCard>
 
-          <SectionCard title="Modalidades" subtitle="Ejemplo: 5K, 10K, Medio Maratón, Caminata, Infantil.">
+          <SectionCard id="modalidades" title="Modalidades" subtitle="Ejemplo: 5K, 10K, Medio Maratón, Caminata, Infantil.">
             <form onSubmit={addModality} className="grid gap-4 md:grid-cols-2">
               <Field label="Nombre">
                 <input name="nombre" value={modalityForm.nombre} onChange={handleFormChange(setModalityForm)} required className={inputClass()} />
@@ -860,7 +1117,7 @@ export default function AdminEventSetupPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Categorías" subtitle="Sirven para clasificar automáticamente por edad, sexo y modalidad.">
+          <SectionCard id="categorias" title="Categorías" subtitle="Sirven para clasificar automáticamente por edad, sexo y modalidad.">
             <form onSubmit={addCategory} className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between gap-3">
@@ -927,8 +1184,7 @@ export default function AdminEventSetupPage() {
           </SectionCard>
         </div>
 
-        <div className="space-y-8">
-          <SectionCard title="Hero del evento" subtitle="Imagen superior de la página pública del evento. Si no subes una, se usará el hero principal del sitio.">
+          <SectionCard id="identidad" title="Hero del evento" subtitle="Imagen superior de la página pública del evento. Si no subes una, se usará el hero principal del sitio.">
             {eventForm.imagen_hero ? (
               <img src={getApiAssetUrl(eventForm.imagen_hero)} alt="Hero del evento" className="mb-5 h-56 w-full rounded-2xl border border-slate-200 object-cover" />
             ) : (
@@ -962,7 +1218,7 @@ export default function AdminEventSetupPage() {
             </form>
           </SectionCard>
 
-          <SectionCard title="Convocatoria" subtitle="Puedes subir la imagen desde el admin o pegar una URL manualmente.">
+          <SectionCard id="convocatoria" title="Convocatoria" subtitle="Puedes subir la imagen desde el admin, elegir una imagen subida o pegar una URL manualmente.">
             {eventForm.imagen_convocatoria ? (
               <img src={getApiAssetUrl(eventForm.imagen_convocatoria)} alt="Convocatoria del evento" className="mb-5 w-full rounded-2xl border border-slate-200 object-cover" />
             ) : (
@@ -978,7 +1234,7 @@ export default function AdminEventSetupPage() {
             </form>
           </SectionCard>
 
-          <SectionCard title="Lo que recibe el corredor" subtitle="Crea los cuadros que aparecerán en la página pública: playera, medalla, morral, número, chip u otros beneficios.">
+          <SectionCard id="kit" title="Lo que recibe el corredor" subtitle="Crea los cuadros que aparecerán en la página pública: playera, medalla, morral, número, chip u otros beneficios.">
             <form onSubmit={addKitItem} className="grid gap-4">
               <Field label="Título">
                 <input name="titulo" value={kitItemForm.titulo} onChange={handleFormChange(setKitItemForm)} required placeholder="Playera, Medalla, Morral..." className={inputClass()} />
@@ -986,9 +1242,15 @@ export default function AdminEventSetupPage() {
               <Field label="Descripción corta">
                 <input name="descripcion" value={kitItemForm.descripcion} onChange={handleFormChange(setKitItemForm)} placeholder="Incluida en paquete VIP, diseño conmemorativo..." className={inputClass()} />
               </Field>
-              <Field label="URL de imagen opcional">
-                <input name="imagen" value={kitItemForm.imagen} onChange={handleFormChange(setKitItemForm)} placeholder="/uploads/eventos/playera.png o https://..." className={inputClass()} />
-              </Field>
+              <ImageLibraryField
+                label="Imagen opcional"
+                value={kitItemForm.imagen}
+                placeholder="/uploads/eventos/playera.png o https://..."
+                assets={assets}
+                onChange={(value) => setKitItemForm((prev) => ({ ...prev, imagen: value }))}
+                onUpload={uploadAssetForKitItemForm}
+                saving={saving === 'asset-kit-form'}
+              />
               <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                 <Field label="Orden de aparición">
                   <input type="number" name="orden" value={kitItemForm.orden} onChange={handleFormChange(setKitItemForm)} className={inputClass()} />
@@ -1023,7 +1285,15 @@ export default function AdminEventSetupPage() {
                   <div className="grid gap-3">
                     <input value={item.titulo || ''} onChange={(e) => handleKitItemChange(item.id, 'titulo', e.target.value)} className={inputClass()} />
                     <input value={item.descripcion || ''} onChange={(e) => handleKitItemChange(item.id, 'descripcion', e.target.value)} placeholder="Descripción corta" className={inputClass()} />
-                    <input value={item.imagen || ''} onChange={(e) => handleKitItemChange(item.id, 'imagen', e.target.value)} placeholder="URL de imagen" className={inputClass()} />
+                    <ImageLibraryField
+                      label="Imagen del cuadro"
+                      value={item.imagen || ''}
+                      placeholder="/uploads/eventos/playera.png o https://..."
+                      assets={assets}
+                      onChange={(value) => handleKitItemChange(item.id, 'imagen', value)}
+                      onUpload={(file) => uploadAssetForKitItem(item.id, file)}
+                      saving={saving === `asset-kit-${item.id}`}
+                    />
                     <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                       <label className="block">
                         <span className="text-sm font-semibold text-slate-700">Orden de aparición</span>
@@ -1080,7 +1350,7 @@ export default function AdminEventSetupPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Base de dorsal" subtitle="Opcional. Sube el diseño del número de esta carrera; si no hay uno, SudorTime generará un dorsal default.">
+          <SectionCard id="dorsal" title="Base de dorsal" subtitle="Opcional. Sube el diseño del número de esta carrera; si no hay uno, SudorTime generará un dorsal default.">
             <AssetUpload
               title="Dorsal"
               imageUrl={eventForm.imagen_dorsal}
@@ -1121,9 +1391,15 @@ export default function AdminEventSetupPage() {
                 <input type="number" min="12" max="120" name="dorsal_personalizacion_text_size" value={eventForm.dorsal_personalizacion_text_size} onChange={handleEventChange} className={inputClass()} />
               </Field>
               <div className="md:col-span-2">
-                <Field label="URL de plantilla de personalizacion">
-                  <input name="dorsal_personalizacion_image" value={eventForm.dorsal_personalizacion_image} onChange={handleEventChange} placeholder="/uploads/eventos/dorsal-personalizacion.png o https://..." className={inputClass()} />
-                </Field>
+                <ImageLibraryField
+                  label="Plantilla de personalizacion"
+                  value={eventForm.dorsal_personalizacion_image}
+                  placeholder="/uploads/eventos/dorsal-personalizacion.png o https://..."
+                  assets={assets}
+                  onChange={(value) => setEventImageField('dorsal_personalizacion_image', value)}
+                  onUpload={(file) => uploadAssetForField('dorsal_personalizacion_image', file)}
+                  saving={saving === 'asset-dorsal_personalizacion_image'}
+                />
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
                   Si la dejas vacia se usara la base de dorsal. La posicion vertical ayuda a colocar el texto dentro del recuadro blanco del diseno.
                 </p>
@@ -1151,7 +1427,7 @@ export default function AdminEventSetupPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Tallas de playera" subtitle="El registro público solo mostrará tallas activas con stock disponible.">
+          <SectionCard id="inventario" title="Tallas de playera" subtitle="El registro público solo mostrará tallas activas con stock disponible.">
             <form onSubmit={addShirtSize} className="grid gap-4 sm:grid-cols-2">
               <Field label="Talla">
                 <input name="talla" value={shirtForm.talla} onChange={handleFormChange(setShirtForm)} required placeholder="S, M, L, XL" className={inputClass()} />
@@ -1223,7 +1499,6 @@ export default function AdminEventSetupPage() {
               })}
             </div>
           </SectionCard>
-        </div>
       </div>
     </AdminLayout>
   )

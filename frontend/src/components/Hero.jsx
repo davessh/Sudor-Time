@@ -8,12 +8,12 @@ const navItems = [
   { label: 'INICIO', href: '/' },
   { label: 'CALENDARIO', href: '/#eventos' },
   { label: 'RESULTADOS', href: '/#eventos' },
-  { label: 'GALERÍA', href: '/galeria' },
+  { label: 'GALERIA', href: '/galeria' },
 ]
 
 export default function Hero({
-  title = 'Encuentra tu próxima carrera',
-  subtitle = 'Inscripciones en línea para eventos deportivos en Mexicali y la región.',
+  title = 'Encuentra tu proxima carrera',
+  subtitle = 'Inscripciones en linea para eventos deportivos en Mexicali y la region.',
   filters = { query: '', distances: [], months: [] },
   siteSettings,
   showSearch = true,
@@ -85,15 +85,6 @@ export default function Hero({
               </a>
             ))}
           </nav>
-
-          <div className="grid w-full max-w-sm grid-cols-2 gap-2 self-center sm:flex sm:w-auto sm:max-w-none sm:items-center sm:justify-center sm:gap-3">
-            <Link to="/admin/login" className="btn-nav-outline">
-              Iniciar sesión
-            </Link>
-            <a href="/#eventos" className="btn-nav-solid">
-              Registrarse
-            </a>
-          </div>
         </div>
       </div>
 
@@ -124,7 +115,6 @@ export default function Hero({
                 onChange={(event) => onQueryChange?.(event.target.value)}
               />
             </label>
-
           </form>
         )}
       </div>

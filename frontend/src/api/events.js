@@ -16,6 +16,20 @@ export function getEventStats(eventId) {
   return apiRequest(`/events/${eventId}/stats`)
 }
 
+export function getEventAssets(limit = 120) {
+  return apiRequest(`/events/assets?limit=${limit}`)
+}
+
+export function uploadEventAsset(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest('/events/assets/upload', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
 export function createEvent(payload) {
   return apiRequest('/events', {
     method: 'POST',
