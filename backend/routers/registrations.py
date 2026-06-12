@@ -30,7 +30,7 @@ from schemas.registration import (
     RegistrationPublicLookupResponse,
     RegistrationStatusUpdate,
 )
-from security import require_admin
+from security import require_admin, require_public_rate_limit
 from services.confirmation_email import send_registration_confirmation_email
 from services.registration_helpers import calcular_edad, buscar_categoria_automatica
 
@@ -266,6 +266,9 @@ def crear_respuesta_detalle(registro: Registration) -> RegistrationDetailRespons
         categoria_nombre=registro.category.nombre if registro.category else None,
         numero_competidor=registro.numero_competidor,
         talla_playera=registro.talla_playera,
+        dorsal_personalizado_texto=registro.dorsal_personalizado_texto,
+        dorsal_personalizado_costo=registro.dorsal_personalizado_costo,
+        dorsal_personalizado_gratis=registro.dorsal_personalizado_gratis,
         status=registro.status,
         payment_status=registro.payment_status,
         amount=registro.amount,
@@ -309,6 +312,9 @@ def crear_respuesta_publica(registro: Registration) -> RegistrationPublicLookupR
         categoria_nombre=registro.category.nombre if registro.category else None,
         numero_competidor=registro.numero_competidor,
         talla_playera=registro.talla_playera,
+        dorsal_personalizado_texto=registro.dorsal_personalizado_texto,
+        dorsal_personalizado_costo=registro.dorsal_personalizado_costo,
+        dorsal_personalizado_gratis=registro.dorsal_personalizado_gratis,
         status=registro.status,
         payment_status=registro.payment_status,
         amount=registro.amount,
@@ -491,6 +497,60 @@ def calcular_monto_inscripcion(modalidad: EventModality, producto: Optional[Regi
     return total
 
 
+def _money(value) -> Decimal:
+    return Decimal(str(value or "0")).quantize(Decimal("0.01"))
+
+
+def _active_promo_registrations_count(
+    db: Session,
+    event_id: int,
+    exclude_registration_id: Optional[int] = None,
+) -> int:
+    query = db.query(Registration).filter(
+        Registration.event_id == event_id,
+        Registration.status.in_(ACTIVE_STOCK_STATUSES),
+    )
+
+    if exclude_registration_id is not None:
+        query = query.filter(Registration.id != exclude_registration_id)
+
+    return query.count()
+
+
+def resolver_personalizacion_dorsal(
+    data: RegistrationCreate,
+    db: Session,
+    evento: Event,
+    registro_actual: Optional[Registration] = None,
+) -> tuple[Optional[str], Decimal, bool]:
+    texto = data.dorsal_personalizado_texto
+    evento_bloqueado = db.query(Event).filter(Event.id == evento.id).with_for_update().first() or evento
+
+    if not evento_bloqueado.dorsal_personalizacion_enabled:
+        if texto:
+            raise HTTPException(status_code=400, detail="La personalizacion de dorsal no esta activa para este evento")
+        return None, Decimal("0.00"), False
+
+    max_chars = max(int(evento_bloqueado.dorsal_personalizacion_max_chars or 0), 1)
+    if texto and len(texto) > max_chars:
+        raise HTTPException(status_code=400, detail=f"El texto del dorsal no debe superar {max_chars} caracteres")
+
+    free_limit = max(int(evento_bloqueado.dorsal_personalizacion_free_limit or 0), 0)
+    already_has_free_entitlement = bool(registro_actual and registro_actual.dorsal_personalizado_gratis)
+    active_count = _active_promo_registrations_count(
+        db,
+        evento_bloqueado.id,
+        exclude_registration_id=registro_actual.id if registro_actual else None,
+    )
+    has_free_entitlement = already_has_free_entitlement or (free_limit > 0 and active_count < free_limit)
+
+    cost = Decimal("0.00")
+    if texto and not has_free_entitlement:
+        cost = _money(evento_bloqueado.dorsal_personalizacion_price)
+
+    return texto, cost, has_free_entitlement
+
+
 def crear_registro_en_db(data: RegistrationCreate, db: Session) -> Registration:
     evento, participante, modalidad, producto, categoria, talla = validar_y_resolver_registro(data, db)
 
@@ -536,6 +596,8 @@ def crear_registro_en_db(data: RegistrationCreate, db: Session) -> Registration:
         if asignado:
             raise HTTPException(status_code=400, detail="Ese tag ya está asignado activamente en este evento")
 
+    dorsal_texto, dorsal_costo, dorsal_gratis = resolver_personalizacion_dorsal(data, db, evento)
+
     nuevo = Registration(
         event_id=data.event_id,
         participant_id=data.participant_id,
@@ -544,9 +606,12 @@ def crear_registro_en_db(data: RegistrationCreate, db: Session) -> Registration:
         category_id=categoria.id if categoria else data.category_id,
         numero_competidor=data.numero_competidor,
         talla_playera=talla.talla if talla else None,
+        dorsal_personalizado_texto=dorsal_texto,
+        dorsal_personalizado_costo=dorsal_costo,
+        dorsal_personalizado_gratis=dorsal_gratis,
         status="pending_payment",
         payment_status="unpaid",
-        amount=calcular_monto_inscripcion(modalidad, producto),
+        amount=calcular_monto_inscripcion(modalidad, producto) + dorsal_costo,
         currency="MXN",
         public_token=generate_public_token(db),
         expires_at=get_registration_expiration_date(),
@@ -569,7 +634,7 @@ def crear_registro(data: RegistrationCreate, db: Session = Depends(get_db)):
     return crear_registro_en_db(data, db)
 
 
-@router.post("/public", response_model=RegistrationResponse)
+@router.post("/public", response_model=RegistrationResponse, dependencies=[Depends(require_public_rate_limit)])
 def crear_registro_publico(data: RegistrationPublicCreate, db: Session = Depends(get_db)):
     evento = db.query(Event).filter(Event.id == data.event_id).first()
     if not evento:
@@ -604,12 +669,13 @@ def crear_registro_publico(data: RegistrationPublicCreate, db: Session = Depends
         product_id=data.product_id,
         category_id=data.category_id,
         talla_playera=data.talla_playera,
+        dorsal_personalizado_texto=data.dorsal_personalizado_texto,
     )
 
     return crear_registro_en_db(registration_data, db)
 
 
-@router.put("/public/{access_token}", response_model=RegistrationResponse)
+@router.put("/public/{access_token}", response_model=RegistrationResponse, dependencies=[Depends(require_public_rate_limit)])
 def actualizar_registro_publico(
     access_token: str,
     data: RegistrationPublicCreate,
@@ -637,11 +703,18 @@ def actualizar_registro_publico(
         product_id=data.product_id,
         category_id=data.category_id,
         talla_playera=data.talla_playera,
+        dorsal_personalizado_texto=data.dorsal_personalizado_texto,
     )
 
-    _, _, modalidad, producto, categoria, talla = validar_y_resolver_registro(
+    evento, _, modalidad, producto, categoria, talla = validar_y_resolver_registro(
         registration_data,
         db,
+        registro_actual=registro,
+    )
+    dorsal_texto, dorsal_costo, dorsal_gratis = resolver_personalizacion_dorsal(
+        registration_data,
+        db,
+        evento,
         registro_actual=registro,
     )
 
@@ -661,7 +734,10 @@ def actualizar_registro_publico(
     registro.product_id = data.product_id
     registro.category_id = categoria.id if categoria else data.category_id
     registro.talla_playera = nueva_talla
-    registro.amount = calcular_monto_inscripcion(modalidad, producto)
+    registro.dorsal_personalizado_texto = dorsal_texto
+    registro.dorsal_personalizado_costo = dorsal_costo
+    registro.dorsal_personalizado_gratis = dorsal_gratis
+    registro.amount = calcular_monto_inscripcion(modalidad, producto) + dorsal_costo
     registro.payment_provider = None
     registro.payment_reference = None
     registro.payment_preference_id = None
@@ -874,6 +950,9 @@ def exportar_registros_por_evento_csv(
         "Monto",
         "Moneda",
         "Numero competidor",
+        "Dorsal personalizado",
+        "Costo personalizacion",
+        "Personalizacion gratis",
         "Tag",
         "Vence pago",
         "Pagado en",
@@ -905,6 +984,9 @@ def exportar_registros_por_evento_csv(
             _format_csv_decimal(registro.amount),
             registro.currency or "",
             registro.numero_competidor or "",
+            registro.dorsal_personalizado_texto or "",
+            _format_csv_decimal(registro.dorsal_personalizado_costo),
+            "Si" if registro.dorsal_personalizado_gratis else "No",
             obtener_tag_activo_de_registro(registro).tag.codigo if obtener_tag_activo_de_registro(registro) else "",
             _format_csv_datetime(registro.expires_at),
             _format_csv_datetime(registro.paid_at),
@@ -942,7 +1024,13 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
     old_event_id = registro.event_id
     old_talla = registro.talla_playera
 
-    _, _, _, _, categoria, talla = validar_y_resolver_registro(data, db, registro_actual=registro)
+    evento, _, modalidad, producto, categoria, talla = validar_y_resolver_registro(data, db, registro_actual=registro)
+    dorsal_texto, dorsal_costo, dorsal_gratis = resolver_personalizacion_dorsal(
+        data,
+        db,
+        evento,
+        registro_actual=registro,
+    )
     nueva_talla = talla.talla if talla else None
 
     existente = db.query(Registration).filter(
@@ -997,6 +1085,10 @@ def actualizar_registro(registration_id: int, data: RegistrationCreate, db: Sess
     registro.category_id = categoria.id if categoria else data.category_id
     registro.numero_competidor = data.numero_competidor
     registro.talla_playera = nueva_talla
+    registro.dorsal_personalizado_texto = dorsal_texto
+    registro.dorsal_personalizado_costo = dorsal_costo
+    registro.dorsal_personalizado_gratis = dorsal_gratis
+    registro.amount = calcular_monto_inscripcion(modalidad, producto) + dorsal_costo
 
     asignaciones_activas = db.query(RegistrationTag).filter(
         RegistrationTag.registration_id == registro.id,

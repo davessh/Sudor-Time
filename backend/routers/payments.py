@@ -22,6 +22,7 @@ from routers.registrations import (
     expire_registration_if_needed,
     get_public_registration_by_token,
 )
+from security import require_public_rate_limit
 from services.confirmation_email import send_registration_confirmation_email
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
@@ -130,6 +131,9 @@ def _registration_payment_status(registration: Registration) -> RegistrationPaym
         categoria_nombre=registration.category.nombre if registration.category else None,
         numero_competidor=registration.numero_competidor,
         talla_playera=registration.talla_playera,
+        dorsal_personalizado_texto=registration.dorsal_personalizado_texto,
+        dorsal_personalizado_costo=registration.dorsal_personalizado_costo,
+        dorsal_personalizado_gratis=registration.dorsal_personalizado_gratis,
         status=registration.status,
         payment_status=registration.payment_status,
         amount=registration.amount,
@@ -402,7 +406,7 @@ async def _reconcile_registration_payment(db: Session, registration: Registratio
             print(f"No se pudo enviar correo de confirmacion para registro {registration.id}: {exc}")
 
 
-@router.post("/mercadopago/create-preference", response_model=MercadoPagoPreferenceResponse)
+@router.post("/mercadopago/create-preference", response_model=MercadoPagoPreferenceResponse, dependencies=[Depends(require_public_rate_limit)])
 async def crear_preferencia_mercadopago(
     data: MercadoPagoPreferenceCreate,
     db: Session = Depends(get_db),

@@ -22,6 +22,9 @@ REGISTRATION_COLUMNS = {
     "expired_at": "TIMESTAMP",
     "created_at": "TIMESTAMP",
     "updated_at": "TIMESTAMP",
+    "dorsal_personalizado_texto": "VARCHAR(100)",
+    "dorsal_personalizado_costo": "NUMERIC(10, 2)",
+    "dorsal_personalizado_gratis": "BOOLEAN DEFAULT FALSE NOT NULL",
 }
 
 EVENT_COLUMNS = {
@@ -34,6 +37,14 @@ EVENT_COLUMNS = {
     "imagen_playera": "TEXT",
     "imagen_medalla": "TEXT",
     "imagen_dorsal": "TEXT",
+    "dorsal_personalizacion_enabled": "BOOLEAN DEFAULT FALSE NOT NULL",
+    "dorsal_personalizacion_max_chars": "INTEGER DEFAULT 20 NOT NULL",
+    "dorsal_personalizacion_free_limit": "INTEGER DEFAULT 0 NOT NULL",
+    "dorsal_personalizacion_price": "NUMERIC(10, 2) DEFAULT 0 NOT NULL",
+    "dorsal_personalizacion_image": "TEXT",
+    "dorsal_personalizacion_text_color": "VARCHAR(20) DEFAULT '#111827' NOT NULL",
+    "dorsal_personalizacion_text_top": "INTEGER DEFAULT 50 NOT NULL",
+    "dorsal_personalizacion_text_size": "INTEGER DEFAULT 36 NOT NULL",
 }
 
 EVENT_MODALITY_COLUMNS = {

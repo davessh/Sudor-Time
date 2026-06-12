@@ -10,6 +10,7 @@ import {
   updateEventKitItem,
   uploadEventConvocatoria,
   uploadEventDorsal,
+  uploadEventDorsalPersonalizacion,
   uploadEventHero,
   uploadEventKitItemImage,
   uploadEventMedalla,
@@ -40,6 +41,14 @@ const initialEventForm = {
   imagen_playera: '',
   imagen_medalla: '',
   imagen_dorsal: '',
+  dorsal_personalizacion_enabled: false,
+  dorsal_personalizacion_max_chars: '20',
+  dorsal_personalizacion_free_limit: '0',
+  dorsal_personalizacion_price: '0',
+  dorsal_personalizacion_image: '',
+  dorsal_personalizacion_text_color: '#111827',
+  dorsal_personalizacion_text_top: '50',
+  dorsal_personalizacion_text_size: '36',
 }
 
 const initialModalityForm = {
@@ -135,6 +144,41 @@ function AssetUpload({ title, imageUrl, emptyText, file, onFileChange, onSubmit,
   )
 }
 
+function DorsalPersonalizationPreview({ eventForm }) {
+  const imageUrl = eventForm.dorsal_personalizacion_image || eventForm.imagen_dorsal
+  const sampleText = 'TU FRASE'
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-bold text-slate-900">Preview mobile</p>
+      <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="relative aspect-[16/10] w-full">
+          {imageUrl ? (
+            <img src={getApiAssetUrl(imageUrl)} alt="Preview de dorsal personalizado" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-amber-50 text-center text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
+              Plantilla default
+            </div>
+          )}
+          <div
+            className="absolute left-1/2 w-[78%] -translate-x-1/2 -translate-y-1/2 text-center font-black uppercase leading-none tracking-wide"
+            style={{
+              top: `${Number(eventForm.dorsal_personalizacion_text_top || 50)}%`,
+              color: eventForm.dorsal_personalizacion_text_color || '#111827',
+              fontSize: `clamp(1.4rem, ${Number(eventForm.dorsal_personalizacion_text_size || 36) / 12}vw, ${Number(eventForm.dorsal_personalizacion_text_size || 36)}px)`,
+            }}
+          >
+            {sampleText}
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
+        Este preview solo muestra posicion y estilo del texto; el corredor vera su propia frase en el formulario.
+      </p>
+    </div>
+  )
+}
+
 export default function AdminEventSetupPage() {
   const { id } = useParams()
 
@@ -152,6 +196,7 @@ export default function AdminEventSetupPage() {
   const [shirtImageFile, setShirtImageFile] = useState(null)
   const [medalImageFile, setMedalImageFile] = useState(null)
   const [bibImageFile, setBibImageFile] = useState(null)
+  const [bibPersonalizationImageFile, setBibPersonalizationImageFile] = useState(null)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
@@ -188,6 +233,14 @@ export default function AdminEventSetupPage() {
         imagen_playera: data.imagen_playera || '',
         imagen_medalla: data.imagen_medalla || '',
         imagen_dorsal: data.imagen_dorsal || '',
+        dorsal_personalizacion_enabled: Boolean(data.dorsal_personalizacion_enabled),
+        dorsal_personalizacion_max_chars: String(data.dorsal_personalizacion_max_chars ?? 20),
+        dorsal_personalizacion_free_limit: String(data.dorsal_personalizacion_free_limit ?? 0),
+        dorsal_personalizacion_price: String(data.dorsal_personalizacion_price ?? 0),
+        dorsal_personalizacion_image: data.dorsal_personalizacion_image || '',
+        dorsal_personalizacion_text_color: data.dorsal_personalizacion_text_color || '#111827',
+        dorsal_personalizacion_text_top: String(data.dorsal_personalizacion_text_top ?? 50),
+        dorsal_personalizacion_text_size: String(data.dorsal_personalizacion_text_size ?? 36),
       })
     } catch (err) {
       setError(err.message || 'No se pudo cargar la configuración del evento')
@@ -274,6 +327,14 @@ export default function AdminEventSetupPage() {
         imagen_playera: eventForm.imagen_playera.trim() || null,
         imagen_medalla: eventForm.imagen_medalla.trim() || null,
         imagen_dorsal: eventForm.imagen_dorsal.trim() || null,
+        dorsal_personalizacion_enabled: eventForm.dorsal_personalizacion_enabled,
+        dorsal_personalizacion_max_chars: Number(eventForm.dorsal_personalizacion_max_chars || 20),
+        dorsal_personalizacion_free_limit: Number(eventForm.dorsal_personalizacion_free_limit || 0),
+        dorsal_personalizacion_price: Number(eventForm.dorsal_personalizacion_price || 0),
+        dorsal_personalizacion_image: eventForm.dorsal_personalizacion_image.trim() || null,
+        dorsal_personalizacion_text_color: eventForm.dorsal_personalizacion_text_color.trim() || '#111827',
+        dorsal_personalizacion_text_top: Number(eventForm.dorsal_personalizacion_text_top || 50),
+        dorsal_personalizacion_text_size: Number(eventForm.dorsal_personalizacion_text_size || 36),
       })
       await loadSetup()
       showSuccess('Datos generales actualizados.')
@@ -399,6 +460,26 @@ export default function AdminEventSetupPage() {
       showSuccess('Base de dorsal subida correctamente.')
     } catch (err) {
       showError(err, 'No se pudo subir la base de dorsal')
+    } finally {
+      setSaving('')
+    }
+  }
+
+  async function uploadBibPersonalizationImage(e) {
+    e.preventDefault()
+    if (!bibPersonalizationImageFile) {
+      setError('Selecciona una plantilla de personalizacion primero.')
+      return
+    }
+
+    try {
+      setSaving('bib-personalization-image')
+      await uploadEventDorsalPersonalizacion(id, bibPersonalizationImageFile)
+      setBibPersonalizationImageFile(null)
+      await loadSetup()
+      showSuccess('Plantilla de personalizacion subida correctamente.')
+    } catch (err) {
+      showError(err, 'No se pudo subir la plantilla de personalizacion')
     } finally {
       setSaving('')
     }
@@ -1010,6 +1091,64 @@ export default function AdminEventSetupPage() {
               saving={saving === 'bib-image'}
               buttonText="Subir base de dorsal"
             />
+          </SectionCard>
+
+          <SectionCard title="Personalizacion de dorsal" subtitle="Promo opcional: primeros registros gratis y costo extra configurable despues.">
+            <form onSubmit={saveEvent} className="grid gap-4 md:grid-cols-2">
+              <label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 md:col-span-2">
+                <input type="checkbox" name="dorsal_personalizacion_enabled" checked={eventForm.dorsal_personalizacion_enabled} onChange={handleEventChange} />
+                Activar personalizacion en el formulario publico
+              </label>
+              <Field label="Primeras inscripciones gratis">
+                <input type="number" min="0" name="dorsal_personalizacion_free_limit" value={eventForm.dorsal_personalizacion_free_limit} onChange={handleEventChange} className={inputClass()} />
+              </Field>
+              <Field label="Costo despues de la promo">
+                <input type="number" min="0" step="0.01" name="dorsal_personalizacion_price" value={eventForm.dorsal_personalizacion_price} onChange={handleEventChange} className={inputClass()} />
+              </Field>
+              <Field label="Maximo de caracteres">
+                <input type="number" min="1" max="100" name="dorsal_personalizacion_max_chars" value={eventForm.dorsal_personalizacion_max_chars} onChange={handleEventChange} className={inputClass()} />
+              </Field>
+              <Field label="Color del texto">
+                <div className="flex gap-2">
+                  <input type="color" name="dorsal_personalizacion_text_color" value={eventForm.dorsal_personalizacion_text_color || '#111827'} onChange={handleEventChange} className="h-12 w-14 rounded-xl border border-slate-300 bg-white p-1" />
+                  <input name="dorsal_personalizacion_text_color" value={eventForm.dorsal_personalizacion_text_color || ''} onChange={handleEventChange} className={inputClass()} />
+                </div>
+              </Field>
+              <Field label="Posicion vertical del texto (%)">
+                <input type="number" min="0" max="100" name="dorsal_personalizacion_text_top" value={eventForm.dorsal_personalizacion_text_top} onChange={handleEventChange} className={inputClass()} />
+              </Field>
+              <Field label="Tamano del texto">
+                <input type="number" min="12" max="120" name="dorsal_personalizacion_text_size" value={eventForm.dorsal_personalizacion_text_size} onChange={handleEventChange} className={inputClass()} />
+              </Field>
+              <div className="md:col-span-2">
+                <Field label="URL de plantilla de personalizacion">
+                  <input name="dorsal_personalizacion_image" value={eventForm.dorsal_personalizacion_image} onChange={handleEventChange} placeholder="/uploads/eventos/dorsal-personalizacion.png o https://..." className={inputClass()} />
+                </Field>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                  Si la dejas vacia se usara la base de dorsal. La posicion vertical ayuda a colocar el texto dentro del recuadro blanco del diseno.
+                </p>
+              </div>
+              <div className="md:col-span-2">
+                <DorsalPersonalizationPreview eventForm={eventForm} />
+              </div>
+              <div className="md:col-span-2">
+                <button disabled={saving === 'event'} className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white hover:opacity-90 disabled:opacity-60">
+                  {saving === 'event' ? 'Guardando...' : 'Guardar promo de dorsal'}
+                </button>
+              </div>
+            </form>
+            <div className="mt-5">
+              <AssetUpload
+                title="Plantilla de personalizacion"
+                imageUrl={eventForm.dorsal_personalizacion_image}
+                emptyText="Sin plantilla especifica. Se usara la base de dorsal."
+                file={bibPersonalizationImageFile}
+                onFileChange={setBibPersonalizationImageFile}
+                onSubmit={uploadBibPersonalizationImage}
+                saving={saving === 'bib-personalization-image'}
+                buttonText="Subir plantilla"
+              />
+            </div>
           </SectionCard>
 
           <SectionCard title="Tallas de playera" subtitle="El registro público solo mostrará tallas activas con stock disponible.">

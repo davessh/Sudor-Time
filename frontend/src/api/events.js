@@ -96,6 +96,16 @@ export function uploadEventDorsal(eventId, file) {
   })
 }
 
+export function uploadEventDorsalPersonalizacion(eventId, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return apiRequest(`/events/${eventId}/upload-dorsal-personalizacion`, {
+    method: 'POST',
+    body: formData,
+  })
+}
+
 export function createEventKitItem(eventId, payload) {
   return apiRequest(`/events/${eventId}/kit-items`, {
     method: 'POST',

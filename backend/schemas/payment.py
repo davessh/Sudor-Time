@@ -30,6 +30,9 @@ class RegistrationPaymentStatusResponse(BaseModel):
     categoria_nombre: Optional[str] = None
     numero_competidor: Optional[str] = None
     talla_playera: Optional[str] = None
+    dorsal_personalizado_texto: Optional[str] = None
+    dorsal_personalizado_costo: Optional[Decimal] = None
+    dorsal_personalizado_gratis: bool = False
     status: str
     payment_status: str
     amount: Optional[Decimal]

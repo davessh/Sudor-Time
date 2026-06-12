@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -17,6 +17,9 @@ class Registration(Base):
 
     numero_competidor = Column(String, nullable=True)
     talla_playera = Column(String, nullable=True)
+    dorsal_personalizado_texto = Column(String(100), nullable=True)
+    dorsal_personalizado_costo = Column(Numeric(10, 2), nullable=True)
+    dorsal_personalizado_gratis = Column(Boolean, default=False, nullable=False)
 
     status = Column(String(32), nullable=False, default="pending_payment")
     payment_status = Column(String(32), nullable=False, default="unpaid")

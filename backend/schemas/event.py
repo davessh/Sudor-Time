@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from schemas.category import CategoryResponse
 from schemas.modality import EventModalityResponse
@@ -29,6 +29,14 @@ class EventCreate(BaseModel):
     imagen_playera: Optional[str] = None
     imagen_medalla: Optional[str] = None
     imagen_dorsal: Optional[str] = None
+    dorsal_personalizacion_enabled: bool = False
+    dorsal_personalizacion_max_chars: int = Field(default=20, ge=1, le=100)
+    dorsal_personalizacion_free_limit: int = Field(default=0, ge=0)
+    dorsal_personalizacion_price: Decimal = Field(default=Decimal("0"), ge=0)
+    dorsal_personalizacion_image: Optional[str] = None
+    dorsal_personalizacion_text_color: str = "#111827"
+    dorsal_personalizacion_text_top: int = Field(default=50, ge=0, le=100)
+    dorsal_personalizacion_text_size: int = Field(default=36, ge=12, le=120)
 
 
 class EventResponse(BaseModel):
@@ -51,6 +59,14 @@ class EventResponse(BaseModel):
     imagen_playera: Optional[str] = None
     imagen_medalla: Optional[str] = None
     imagen_dorsal: Optional[str] = None
+    dorsal_personalizacion_enabled: bool = False
+    dorsal_personalizacion_max_chars: int = 20
+    dorsal_personalizacion_free_limit: int = 0
+    dorsal_personalizacion_price: Decimal = Decimal("0")
+    dorsal_personalizacion_image: Optional[str] = None
+    dorsal_personalizacion_text_color: str = "#111827"
+    dorsal_personalizacion_text_top: int = 50
+    dorsal_personalizacion_text_size: int = 36
 
     model_config = ConfigDict(from_attributes=True)
 

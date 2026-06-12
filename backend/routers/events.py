@@ -16,6 +16,7 @@ router = APIRouter(prefix="/events", tags=["Events"])
 UPLOADS_DIR = EVENT_UPLOADS_DIR
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+PROMO_ACTIVE_STATUSES = ("pending_payment", "confirmed")
 
 
 def _public_upload_path(filename: str) -> str:
@@ -30,6 +31,13 @@ def _looks_like_allowed_image(data: bytes, extension: str) -> bool:
     if extension == ".webp":
         return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
     return False
+
+
+def _count_active_registrations(db: Session, event_id: int) -> int:
+    return db.query(Registration).filter(
+        Registration.event_id == event_id,
+        Registration.status.in_(PROMO_ACTIVE_STATUSES),
+    ).count()
 
 
 @router.post("", response_model=EventResponse, dependencies=[Depends(require_admin)])
@@ -76,6 +84,8 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
         for shirt_size in active_shirt_sizes
         if shirt_size.stock is None or shirt_size.stock > 0
     ]
+    active_registrations = _count_active_registrations(db, event_id)
+    personalization_free_limit = max(event.dorsal_personalizacion_free_limit or 0, 0)
 
     return {
         "id": event.id,
@@ -97,6 +107,15 @@ def obtener_setup_evento(event_id: int, db: Session = Depends(get_db)):
         "imagen_playera": event.imagen_playera,
         "imagen_medalla": event.imagen_medalla,
         "imagen_dorsal": event.imagen_dorsal,
+        "dorsal_personalizacion_enabled": event.dorsal_personalizacion_enabled,
+        "dorsal_personalizacion_max_chars": event.dorsal_personalizacion_max_chars,
+        "dorsal_personalizacion_free_limit": event.dorsal_personalizacion_free_limit,
+        "dorsal_personalizacion_free_remaining": max(personalization_free_limit - active_registrations, 0),
+        "dorsal_personalizacion_price": float(event.dorsal_personalizacion_price or 0),
+        "dorsal_personalizacion_image": event.dorsal_personalizacion_image,
+        "dorsal_personalizacion_text_color": event.dorsal_personalizacion_text_color,
+        "dorsal_personalizacion_text_top": event.dorsal_personalizacion_text_top,
+        "dorsal_personalizacion_text_size": event.dorsal_personalizacion_text_size,
         "has_shirt_sizes": len(active_shirt_sizes) > 0,
         "modalities": [
             {
@@ -260,6 +279,15 @@ async def subir_dorsal_evento(
     db: Session = Depends(get_db),
 ):
     return await _guardar_imagen_evento(event_id, file, db, "imagen_dorsal", "dorsal")
+
+
+@router.post("/{event_id}/upload-dorsal-personalizacion", response_model=EventResponse, dependencies=[Depends(require_admin)])
+async def subir_dorsal_personalizacion_evento(
+    event_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    return await _guardar_imagen_evento(event_id, file, db, "dorsal_personalizacion_image", "dorsal-personalizacion")
 
 
 @router.post("/{event_id}/kit-items", response_model=EventKitItemResponse, dependencies=[Depends(require_admin)])

@@ -1,6 +1,7 @@
-import { CheckCircle2, ClipboardList, UserRound } from 'lucide-react'
+import { CheckCircle2, ClipboardList, Sparkles, UserRound } from 'lucide-react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
+import { getApiAssetUrl } from '../api/client'
 import { getEventSetup } from '../api/events'
 import { createPublicRegistration, updatePublicRegistration } from '../api/registrations'
 
@@ -68,6 +69,7 @@ const emptyForm = {
   ciudad: '',
   talla: '',
   equipo: '',
+  dorsalPersonalizado: '',
 }
 
 const PENDING_REGISTRATION_KEY = 'sudortime_pending_registration'
@@ -157,6 +159,30 @@ export default function RegistrationPage() {
     return Number(modalidadSeleccionada?.precio || 0) + Number(productoSeleccionado?.precio || 0)
   }, [modalidadSeleccionada, productoSeleccionado])
 
+  const dorsalConfig = useMemo(() => {
+    const enabled = Boolean(setup?.dorsal_personalizacion_enabled)
+    const freeRemaining = Number(setup?.dorsal_personalizacion_free_remaining || 0)
+    const price = Number(setup?.dorsal_personalizacion_price || 0)
+    const hasText = Boolean(formData.dorsalPersonalizado.trim())
+
+    return {
+      enabled,
+      maxChars: Number(setup?.dorsal_personalizacion_max_chars || 20),
+      freeRemaining,
+      price,
+      isFree: enabled && freeRemaining > 0,
+      selectedCost: enabled && hasText && freeRemaining <= 0 ? price : 0,
+      templateImage: setup?.dorsal_personalizacion_image || setup?.imagen_dorsal || '',
+      textColor: setup?.dorsal_personalizacion_text_color || '#111827',
+      textTop: Number(setup?.dorsal_personalizacion_text_top || 50),
+      textSize: Number(setup?.dorsal_personalizacion_text_size || 36),
+    }
+  }, [setup, formData.dorsalPersonalizado])
+
+  const totalConExtras = useMemo(() => {
+    return totalEstimado + dorsalConfig.selectedCost
+  }, [totalEstimado, dorsalConfig.selectedCost])
+
   const requierePlayera = Boolean(modalidadSeleccionada?.incluye_playera || productoSeleccionado?.incluye_playera)
 
   const categoriaCalculada = useMemo(() => {
@@ -196,6 +222,11 @@ export default function RegistrationPage() {
     }))
   }
 
+  function handleDorsalTextChange(e) {
+    const value = e.target.value.toUpperCase().slice(0, dorsalConfig.maxChars)
+    setFormData((prev) => ({ ...prev, dorsalPersonalizado: value }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -215,6 +246,7 @@ export default function RegistrationPage() {
         product_id: formData.product_id ? Number(formData.product_id) : null,
         category_id: categoriaCalculada?.id || null,
         talla_playera: requierePlayera ? formData.talla || null : null,
+        dorsal_personalizado_texto: dorsalConfig.enabled ? formData.dorsalPersonalizado.trim() || null : null,
         participant: {
           nombre: formData.nombre.trim(),
           apellido_paterno: apellidos.apellido_paterno,
@@ -363,7 +395,51 @@ export default function RegistrationPage() {
             </FormSection>
           )}
 
-          <FormSection icon={UserRound} title="2. Datos del corredor">
+          {dorsalConfig.enabled && (
+            <FormSection icon={Sparkles} title="2. Personaliza tu dorsal">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-black text-slate-950">Tu frase en el numero</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-500">
+                        Opcional. Puedes poner nombre, frase corta o numero especial.
+                      </p>
+                    </div>
+                    <span
+                      className="w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em]"
+                      style={{ backgroundColor: `${eventTheme.accent}24`, color: eventTheme.primary }}
+                    >
+                      {dorsalConfig.isFree ? 'Gratis por promo' : `Extra ${formatMoney(dorsalConfig.price)}`}
+                    </span>
+                  </div>
+                  <div className="mt-4">
+                    <input
+                      name="dorsalPersonalizado"
+                      value={formData.dorsalPersonalizado}
+                      onChange={handleDorsalTextChange}
+                      maxLength={dorsalConfig.maxChars}
+                      placeholder="Ej. MOISES, VAMOS CON TODO, 11VA"
+                      className="input-control text-center text-lg font-black uppercase tracking-wide"
+                    />
+                    <div className="mt-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+                      <span>{formData.dorsalPersonalizado.length}/{dorsalConfig.maxChars} caracteres</span>
+                      <span>{dorsalConfig.freeRemaining > 0 ? `${dorsalConfig.freeRemaining} lugares gratis disponibles` : 'Promo gratis agotada'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <BibPersonalizationPreview
+                  text={formData.dorsalPersonalizado}
+                  config={dorsalConfig}
+                  accent={eventTheme.accent}
+                  primary={eventTheme.primary}
+                />
+              </div>
+            </FormSection>
+          )}
+
+          <FormSection icon={UserRound} title={dorsalConfig.enabled ? '3. Datos del corredor' : '2. Datos del corredor'}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Nombre">
                 <input name="nombre" value={formData.nombre} onChange={handleChange} required placeholder="Nombre" className="input-control" />
@@ -397,7 +473,7 @@ export default function RegistrationPage() {
           </FormSection>
 
           {requierePlayera && (
-            <FormSection title="3. Playera">
+            <FormSection title={dorsalConfig.enabled ? '4. Playera' : '3. Playera'}>
               {tallasDisponibles.length > 0 ? (
                 <Field label="Talla">
                   <select name="talla" value={formData.talla} onChange={handleChange} required className="input-control">
@@ -427,7 +503,15 @@ export default function RegistrationPage() {
             <div className="mt-5 space-y-3 text-sm">
               <SummaryLine label="Modalidad" value={modalidadSeleccionada?.nombre || 'Pendiente'} />
               <SummaryLine label="Paquete" value={productoSeleccionado?.nombre || 'Sin paquete adicional'} />
-              <SummaryLine label="Total" value={modalidadSeleccionada ? formatMoney(totalEstimado) : 'Pendiente'} strong />
+              {dorsalConfig.enabled && (
+                <SummaryLine
+                  label="Dorsal"
+                  value={formData.dorsalPersonalizado.trim()
+                    ? (dorsalConfig.selectedCost > 0 ? formatMoney(dorsalConfig.selectedCost) : 'Incluido')
+                    : 'Sin personalizar'}
+                />
+              )}
+              <SummaryLine label="Total" value={modalidadSeleccionada ? formatMoney(totalConExtras) : 'Pendiente'} strong />
               <SummaryLine label="Edad al evento" value={edad !== null ? `${edad} años` : 'Pendiente'} />
               <SummaryLine label="Playera" value={requierePlayera ? (formData.talla || 'Pendiente') : 'No incluida'} />
             </div>
@@ -498,6 +582,44 @@ function Field({ label, children }) {
       <span className="field-label">{label}</span>
       <div className="mt-2">{children}</div>
     </label>
+  )
+}
+
+function BibPersonalizationPreview({ text, config, accent, primary }) {
+  const displayText = text.trim() || 'TU FRASE'
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="relative aspect-[16/10] w-full">
+        {config.templateImage ? (
+          <img src={getApiAssetUrl(config.templateImage)} alt="Preview de dorsal personalizado" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-amber-50">
+            <div className="absolute inset-x-[8%] top-[10%] rounded-t-3xl border-x-4 border-t-4 border-amber-200 pt-5 text-center">
+              <p className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: primary }}>SudorTime</p>
+            </div>
+            <div className="absolute inset-x-[8%] top-[28%] h-[44%] rounded-3xl border-4 border-amber-200 bg-white" />
+            <div className="absolute inset-x-[24%] bottom-[8%] h-3 rounded-full" style={{ backgroundColor: accent }} />
+          </div>
+        )}
+        <div
+          className="absolute left-1/2 w-[78%] -translate-x-1/2 -translate-y-1/2 text-center font-black uppercase leading-none tracking-wide"
+          style={{
+            top: `${config.textTop}%`,
+            color: config.textColor,
+            fontSize: `clamp(1.25rem, ${config.textSize / 13}vw, ${config.textSize}px)`,
+            textShadow: '0 1px 0 rgba(255,255,255,0.65)',
+          }}
+        >
+          {displayText}
+        </div>
+      </div>
+      <div className="border-t border-slate-100 px-4 py-3">
+        <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: primary }}>
+          Preview de personalizacion
+        </p>
+      </div>
+    </div>
   )
 }
 

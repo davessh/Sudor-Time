@@ -182,6 +182,12 @@ function drawDefaultBib(ctx, payment, x, y, width, height) {
   ctx.font = '900 190px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
   drawCenteredText(ctx, formatRunnerNumber(payment.numero_competidor), x + width / 2, y + 470, width - 120)
 
+  if (payment.dorsal_personalizado_texto) {
+    ctx.fillStyle = '#6A1A24'
+    ctx.font = '900 34px Inter, Arial, sans-serif'
+    drawCenteredText(ctx, payment.dorsal_personalizado_texto, x + width / 2, y + 518, width - 120)
+  }
+
   ctx.fillStyle = '#0f172a'
   ctx.font = '900 42px Inter, Arial, sans-serif'
   drawCenteredText(ctx, payment.participante_nombre, x + width / 2, y + 560, width - 120)
@@ -246,6 +252,12 @@ function drawBibImage(ctx, payment, templateImage) {
     ctx.font = '900 180px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
     drawCenteredText(ctx, formatRunnerNumber(payment.numero_competidor), BIB_IMAGE_WIDTH / 2, bibY + 360, 760)
     ctx.shadowBlur = 0
+
+    if (payment.dorsal_personalizado_texto) {
+      ctx.fillStyle = '#6A1A24'
+      ctx.font = '900 32px Inter, Arial, sans-serif'
+      drawCenteredText(ctx, payment.dorsal_personalizado_texto, BIB_IMAGE_WIDTH / 2, bibY + 418, 760)
+    }
 
     ctx.fillStyle = '#0f172a'
     ctx.font = '900 38px Inter, Arial, sans-serif'
@@ -609,6 +621,12 @@ export default function PaymentPage() {
                   <SummaryLine label="Paquete" value={payment.producto_nombre || 'Sin paquete adicional'} />
                   <SummaryLine label="Categoría" value={payment.categoria_nombre || 'Por confirmar'} />
                   <SummaryLine label="Playera" value={payment.talla_playera || 'No incluida'} />
+                  <SummaryLine
+                    label="Dorsal personalizado"
+                    value={payment.dorsal_personalizado_texto
+                      ? `${payment.dorsal_personalizado_texto}${payment.dorsal_personalizado_costo > 0 ? ` · ${formatMoney(payment.dorsal_personalizado_costo)}` : ' · incluido'}`
+                      : 'Sin personalizar'}
+                  />
                 </div>
               </div>
 
@@ -669,6 +687,11 @@ function DigitalBib({ payment }) {
             <p className="mt-1 font-mono text-7xl font-black leading-none tracking-tight text-slate-950 sm:text-8xl">
               {formatRunnerNumber(payment.numero_competidor)}
             </p>
+            {payment.dorsal_personalizado_texto && (
+              <p className="mt-3 text-xl font-black uppercase tracking-wide text-[#6A1A24]">
+                {payment.dorsal_personalizado_texto}
+              </p>
+            )}
           </div>
 
           <p className="text-lg font-black leading-tight text-slate-950">{payment.participante_nombre}</p>

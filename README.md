@@ -31,6 +31,7 @@ Desde admin se busca que cada evento pueda tener su propia identidad visual y co
 - `imagen_dorsal`: base opcional para el dorsal digital de confirmacion; si falta, hay diseno default.
 - `cuenta_regresiva_at`: fecha/hora objetivo para mostrar cuenta regresiva en la pagina del evento.
 - `event_kit_items`: items configurables de "Lo que recibe el corredor".
+- Personalizacion de dorsal: promo configurable por evento para primeros N registros gratis y costo extra posterior.
 
 En los items del kit, `orden` significa orden de aparicion: numeros mas bajos salen primero. Esto permite mostrar solo camiseta, o camiseta/medalla/morral/numero/etc. segun cada organizador.
 
@@ -46,6 +47,7 @@ En los items del kit, `orden` significa orden de aparicion: numeros mas bajos sa
 - Formulario de inscripcion: `frontend/src/pages/RegistrationPage.jsx`
 - Confirmacion/pago/dorsal: `frontend/src/pages/PaymentPage.jsx`
 - Admin setup evento: `frontend/src/pages/admin/AdminEventSetupPage.jsx`
+- Auditoria de seguridad: `SECURITY_AUDIT.md`
 
 ## Verificacion Recomendada
 
@@ -64,4 +66,3 @@ python -m compileall backend
 ```
 
 En este entorno local de Codex, el Browser plugin puede fallar por sandbox de Windows. Si eso pasa, usar lint/build/compile como verificacion minima y avisar al usuario.
-

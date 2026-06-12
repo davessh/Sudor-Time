@@ -7,6 +7,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from schemas.participant import ParticipantCreate
 
 
+def _validate_custom_bib_text(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return value
+
+    allowed_symbols = set(" .,#&+_-/!")
+    if any(not (character.isalnum() or character in allowed_symbols) for character in value):
+        raise ValueError("Texto de dorsal no valido")
+
+    return value
+
+
 class RegistrationCreate(BaseModel):
     event_id: int = Field(ge=1)
     participant_id: int = Field(ge=1)
@@ -16,8 +27,9 @@ class RegistrationCreate(BaseModel):
     numero_competidor: Optional[str] = Field(default=None, max_length=20)
     tag_id: Optional[int] = Field(default=None, ge=1)
     talla_playera: Optional[str] = Field(default=None, max_length=20)
+    dorsal_personalizado_texto: Optional[str] = Field(default=None, max_length=100)
 
-    @field_validator("numero_competidor", "talla_playera", mode="before")
+    @field_validator("numero_competidor", "talla_playera", "dorsal_personalizado_texto", mode="before")
     @classmethod
     def clean_optional_text(cls, value):
         if value is None:
@@ -29,8 +41,13 @@ class RegistrationCreate(BaseModel):
     @classmethod
     def validate_competitor_number(cls, value):
         if value and not value.replace("-", "").replace("_", "").isalnum():
-            raise ValueError("Número de competidor no válido")
+            raise ValueError("Numero de competidor no valido")
         return value
+
+    @field_validator("dorsal_personalizado_texto")
+    @classmethod
+    def validate_custom_bib_text(cls, value):
+        return _validate_custom_bib_text(value)
 
 
 class RegistrationPublicCreate(BaseModel):
@@ -39,15 +56,21 @@ class RegistrationPublicCreate(BaseModel):
     product_id: Optional[int] = Field(default=None, ge=1)
     category_id: Optional[int] = Field(default=None, ge=1)
     talla_playera: Optional[str] = Field(default=None, max_length=20)
+    dorsal_personalizado_texto: Optional[str] = Field(default=None, max_length=100)
     participant: ParticipantCreate
 
-    @field_validator("talla_playera", mode="before")
+    @field_validator("talla_playera", "dorsal_personalizado_texto", mode="before")
     @classmethod
     def clean_optional_text(cls, value):
         if value is None:
             return None
         cleaned = " ".join(str(value).strip().split())
         return cleaned or None
+
+    @field_validator("dorsal_personalizado_texto")
+    @classmethod
+    def validate_custom_bib_text(cls, value):
+        return _validate_custom_bib_text(value)
 
 
 class RegistrationStatusUpdate(BaseModel):
@@ -67,6 +90,9 @@ class RegistrationResponse(BaseModel):
     category_id: Optional[int]
     numero_competidor: Optional[str]
     talla_playera: Optional[str]
+    dorsal_personalizado_texto: Optional[str]
+    dorsal_personalizado_costo: Optional[Decimal]
+    dorsal_personalizado_gratis: bool
     status: str
     payment_status: str
     amount: Optional[Decimal]
@@ -120,6 +146,9 @@ class RegistrationDetailResponse(BaseModel):
 
     numero_competidor: Optional[str]
     talla_playera: Optional[str]
+    dorsal_personalizado_texto: Optional[str]
+    dorsal_personalizado_costo: Optional[Decimal]
+    dorsal_personalizado_gratis: bool
     status: str
     payment_status: str
     amount: Optional[Decimal]
@@ -151,6 +180,9 @@ class RegistrationPublicLookupResponse(BaseModel):
     categoria_nombre: Optional[str]
     numero_competidor: Optional[str]
     talla_playera: Optional[str]
+    dorsal_personalizado_texto: Optional[str]
+    dorsal_personalizado_costo: Optional[Decimal]
+    dorsal_personalizado_gratis: bool
     status: str
     payment_status: str
     amount: Optional[Decimal]

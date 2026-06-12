@@ -29,6 +29,14 @@ class Event(Base):
     imagen_playera = Column(Text, nullable=True)
     imagen_medalla = Column(Text, nullable=True)
     imagen_dorsal = Column(Text, nullable=True)
+    dorsal_personalizacion_enabled = Column(Boolean, default=False, nullable=False)
+    dorsal_personalizacion_max_chars = Column(Integer, default=20, nullable=False)
+    dorsal_personalizacion_free_limit = Column(Integer, default=0, nullable=False)
+    dorsal_personalizacion_price = Column(Numeric(10, 2), default=0, nullable=False)
+    dorsal_personalizacion_image = Column(Text, nullable=True)
+    dorsal_personalizacion_text_color = Column(String(20), default="#111827", nullable=False)
+    dorsal_personalizacion_text_top = Column(Integer, default=50, nullable=False)
+    dorsal_personalizacion_text_size = Column(Integer, default=36, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
